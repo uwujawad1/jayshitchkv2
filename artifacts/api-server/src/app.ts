@@ -5,7 +5,7 @@ const app: Express = express();
 
 const HITCHK_PORT = 23863;
 
-app.all("*", (req: Request, res: Response) => {
+app.use((req: Request, res: Response) => {
   const options: http.RequestOptions = {
     hostname: "localhost",
     port: HITCHK_PORT,
