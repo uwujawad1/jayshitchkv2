@@ -2,7 +2,7 @@ kind = "web"
 previewPath = "/"
 title = "HIT Checker"
 version = "1.0.0"
-id = "artifacts/web"
+id = "artifacts/app"
 router = "path"
 
 [[integratedSkills]]
@@ -10,22 +10,22 @@ name = "react-vite"
 version = "1.0.0"
 
 [[services]]
-localPort = 5000
 name = "web"
-paths = ["/"]
+paths = [ "/" ]
+localPort = 23863
 
 [services.development]
 run = "cd /home/runner/workspace/hitchk-app && npm run dev"
 
-[services.env]
-PORT = "5000"
-BASE_PATH = "/"
-
 [services.production]
-build = ["pnpm", "--filter", "@workspace/web", "run", "build"]
-publicDir = "artifacts/web/dist/public"
+build = [ "pnpm", "--filter", "@workspace/app", "run", "build" ]
+publicDir = "artifacts/app/dist/public"
 serve = "static"
 
 [[services.production.rewrites]]
 from = "/*"
 to = "/index.html"
+
+[services.env]
+PORT = "23863"
+BASE_PATH = "/"
