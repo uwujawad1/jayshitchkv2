@@ -557,33 +557,42 @@ export async function registerRoutes(
         expiresAt: Date.now() + 5 * 60 * 1000,
         attempts: 0,
       });
-      const botDir = path.resolve(process.cwd(), "bot");
-      const otpScript = path.join(botDir, "send_otp.py");
+      const botToken = botManager.getBotEnvConfig().botToken || process.env.TELEGRAM_BOT_TOKEN || "";
+      if (!botToken) {
+        otpStore.delete(uid);
+        otpRateLimit.delete(uid);
+        ipRateLimit.delete(ip);
+        return res.status(500).json({ message: "Bot token not configured." });
+      }
 
-      const result = await new Promise<string>((resolve, reject) => {
-        let output = "";
-        const proc = spawn("python3", ["-u", otpScript, uid, otp], {
-          cwd: botDir,
-          env: { ...process.env, PYTHONUNBUFFERED: "1" } as Record<string, string>,
-          timeout: 15000,
-        });
-        proc.stdout?.on("data", (data: Buffer) => { output += data.toString(); });
-        proc.stderr?.on("data", () => {});
-        proc.on("close", (code) => {
-          if (code === 0 && output.trim()) resolve(output.trim());
-          else reject(new Error("Failed to send OTP"));
-        });
-        proc.on("error", (err) => reject(err));
+      const otpText =
+        `🔐 *Web Login OTP*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `Your verification code:\n\n` +
+        `\`${otp}\`\n\n` +
+        `⏳ Expires in 5 minutes\n` +
+        `⚠️ Do not share this code\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `🌐 Hit Checker Web Login`;
+
+      const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: parseInt(uid, 10),
+          text: otpText,
+          parse_mode: "Markdown",
+        }),
       });
+      const tgData = await tgResp.json() as { ok: boolean; description?: string };
 
-      const parsed = JSON.parse(result);
-      if (parsed.ok) {
+      if (tgData.ok) {
         res.json({ success: true, message: "OTP sent to your Telegram" });
       } else {
         otpStore.delete(uid);
         otpRateLimit.delete(uid);
         ipRateLimit.delete(ip);
-        res.status(500).json({ message: parsed.error || "Failed to send OTP. Make sure you've started the bot." });
+        res.status(500).json({ message: tgData.description || "Failed to send OTP. Make sure you've started the bot." });
       }
     } catch (err: any) {
       otpRateLimit.delete(uid);
