@@ -18,13 +18,17 @@ localPort = 23863
 run = "cd /home/runner/workspace/hitchk-app && npm run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/app", "run", "build" ]
-publicDir = "artifacts/app/dist/public"
-serve = "static"
+build = "cd /home/runner/workspace/hitchk-app && npm run build"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+[services.production.run]
+args = ["sh", "-c", "cd /home/runner/workspace/hitchk-app && node dist/index.cjs"]
+
+[services.production.run.env]
+PORT = "23863"
+NODE_ENV = "production"
+
+[services.production.health.startup]
+path = "/"
 
 [services.env]
 PORT = "23863"
