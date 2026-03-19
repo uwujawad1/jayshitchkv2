@@ -13,7 +13,7 @@ app.use((req: Request, res: Response) => {
     method: req.method,
     headers: {
       ...req.headers,
-      host: `localhost:${HITCHK_PORT}`,
+      "x-forwarded-host": req.headers["x-forwarded-host"] || req.headers["host"] || "",
     },
   };
 

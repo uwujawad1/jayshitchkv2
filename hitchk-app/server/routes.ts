@@ -485,21 +485,28 @@ export async function registerRoutes(
     const origin  = req.headers["origin"]  as string | undefined;
     const referer = req.headers["referer"] as string | undefined;
     const host    = req.headers["host"]    as string | undefined;
+    // x-forwarded-host is set by the internal api-server proxy and Replit's own proxy
+    const fwdHost = (req.headers["x-forwarded-host"] as string | undefined)?.split(",")[0].trim();
 
     // In development allow any origin so local preview works
     if (process.env.NODE_ENV !== "production") return true;
 
-    // Must have Origin or Referer from the same host
-    const allowed = host ? [
-      `https://${host}`,
-      `http://${host}`,
-    ] : [];
+    // Build the list of allowed origins from both the direct host and the forwarded host
+    const hostCandidates = [host, fwdHost].filter(Boolean) as string[];
+    const allowed = hostCandidates.flatMap(h => [`https://${h}`, `http://${h}`]);
 
     const source = origin || referer || "";
+
+    // No origin/referer — block direct API calls
     if (!source) {
       res.status(403).json({ message: "Direct API access not allowed." });
       return false;
     }
+
+    // Allow any .replit.app or .repl.co subdomain (Replit's own deployment proxy)
+    const isReplitDomain = /^https?:\/\/[a-zA-Z0-9-]+\.(replit\.app|repl\.co)(\/|$)/.test(source);
+    if (isReplitDomain) return true;
+
     if (!allowed.some(a => source.startsWith(a))) {
       res.status(403).json({ message: "Cross-origin API access not allowed." });
       return false;
