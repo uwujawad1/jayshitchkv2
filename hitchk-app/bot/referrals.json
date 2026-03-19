@@ -140,6 +140,13 @@
       "referredUsers": [],
       "redeemedHistory": []
     },
+    "794487664": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
     "805766346": {
       "balance": 0,
       "totalEarned": 0,
@@ -162,6 +169,13 @@
       "redeemedHistory": []
     },
     "883221823": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "906441358": {
       "balance": 0,
       "totalEarned": 0,
       "referredCount": 0,
@@ -196,6 +210,13 @@
       "referredUsers": [],
       "redeemedHistory": []
     },
+    "1017942246": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
     "1069121535": {
       "balance": 0,
       "totalEarned": 0,
@@ -211,6 +232,13 @@
       "redeemedHistory": []
     },
     "1127812099": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "1140936027": {
       "balance": 0,
       "totalEarned": 0,
       "referredCount": 0,
@@ -466,10 +494,13 @@
       "redeemedHistory": []
     },
     "1765265595": {
-      "balance": 0,
-      "totalEarned": 0,
-      "referredCount": 0,
-      "referredUsers": [],
+      "balance": 0.6,
+      "totalEarned": 0.6,
+      "referredCount": 2,
+      "referredUsers": [
+        "7347577508",
+        "1069121535"
+      ],
       "redeemedHistory": []
     },
     "1767598844": {
@@ -549,6 +580,13 @@
       "referredUsers": [],
       "redeemedHistory": []
     },
+    "1889553784": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
     "1900463165": {
       "balance": 0,
       "totalEarned": 0,
@@ -557,6 +595,13 @@
       "redeemedHistory": []
     },
     "1917681791": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "1931060208": {
       "balance": 0,
       "totalEarned": 0,
       "referredCount": 0,
@@ -584,11 +629,20 @@
       "referredUsers": [],
       "redeemedHistory": []
     },
-    "1972244641": {
+    "1959967369": {
       "balance": 0,
       "totalEarned": 0,
       "referredCount": 0,
       "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "1972244641": {
+      "balance": 0.3,
+      "totalEarned": 0.3,
+      "referredCount": 1,
+      "referredUsers": [
+        "8759161081"
+      ],
       "redeemedHistory": []
     },
     "1983862672": {
@@ -648,11 +702,12 @@
       "redeemedHistory": []
     },
     "2110211638": {
-      "balance": 0.3,
-      "totalEarned": 0.3,
-      "referredCount": 1,
+      "balance": 0.6,
+      "totalEarned": 0.6,
+      "referredCount": 2,
       "referredUsers": [
-        "6987142710"
+        "6987142710",
+        "7494643195"
       ],
       "redeemedHistory": []
     },
@@ -1098,10 +1153,14 @@
       "redeemedHistory": []
     },
     "6776292502": {
-      "balance": 0,
-      "totalEarned": 0,
-      "referredCount": 0,
-      "referredUsers": [],
+      "balance": 0.9,
+      "totalEarned": 0.9,
+      "referredCount": 3,
+      "referredUsers": [
+        "5405809330",
+        "5397665006",
+        "6176341148"
+      ],
       "redeemedHistory": []
     },
     "6447766151": {
@@ -2828,10 +2887,12 @@
       "redeemedHistory": []
     },
     "8484228345": {
-      "balance": 0,
-      "totalEarned": 0,
-      "referredCount": 0,
-      "referredUsers": [],
+      "balance": 0.3,
+      "totalEarned": 0.3,
+      "referredCount": 1,
+      "referredUsers": [
+        "722569986"
+      ],
       "redeemedHistory": []
     },
     "8048506787": {
@@ -2910,17 +2971,271 @@
       "referredCount": 0,
       "referredUsers": [],
       "redeemedHistory": []
+    },
+    "6199800693": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "7289338880": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "5629594788": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "5405809330": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8349560071": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8330838644": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "7632120786": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8258261842": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8489814196": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "5881130245": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8115511902": {
+      "balance": 0.3,
+      "totalEarned": 0.3,
+      "referredCount": 1,
+      "referredUsers": [
+        "999511304"
+      ],
+      "redeemedHistory": []
+    },
+    "5708477403": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "7625035357": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8284958579": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "6241900884": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "6369773552": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8759161081": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "7327014540": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8723822841": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8249482395": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "7076872493": {
+      "balance": 0.6,
+      "totalEarned": 0.6,
+      "referredCount": 2,
+      "referredUsers": [
+        "8317288365",
+        "6953076076"
+      ],
+      "redeemedHistory": []
+    },
+    "7331619793": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8491595815": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "7182557348": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "5300613863": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8229101607": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "7701041339": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8097142824": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "5921095143": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "6331646150": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8317744375": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "8279552682": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "6152138828": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
+    },
+    "6870753745": {
+      "balance": 0,
+      "totalEarned": 0,
+      "referredCount": 0,
+      "referredUsers": [],
+      "redeemedHistory": []
     }
   },
   "usedBy": {
     "477959593": "8309025276",
+    "722569986": "8484228345",
+    "999511304": "8115511902",
+    "1069121535": "1765265595",
     "1651280114": "1517013110",
     "5007119866": "1517013110",
     "5861978250": "5852521256",
     "6987142710": "2110211638",
     "8587492879": "8309025276",
     "5169653941": "7781254504",
-    "8048506787": "8309025276"
+    "8048506787": "8309025276",
+    "5405809330": "6776292502",
+    "7347577508": "1765265595",
+    "8317288365": "7076872493",
+    "6953076076": "7076872493",
+    "5397665006": "6776292502",
+    "6176341148": "6776292502",
+    "8759161081": "1972244641",
+    "7494643195": "2110211638"
   },
   "ipUsed": {
     "14.191.201.202": [
@@ -2946,6 +3261,39 @@
     ],
     "38.96.253.235": [
       "8048506787"
+    ],
+    "152.59.85.219": [
+      "5405809330"
+    ],
+    "195.86.56.12": [
+      "7347577508"
+    ],
+    "103.121.171.57": [
+      "1069121535"
+    ],
+    "88.241.70.107": [
+      "8317288365"
+    ],
+    "146.70.186.206": [
+      "6953076076"
+    ],
+    "156.202.129.209": [
+      "722569986"
+    ],
+    "47.31.123.90": [
+      "5397665006"
+    ],
+    "79.108.225.91": [
+      "6176341148"
+    ],
+    "197.59.61.44": [
+      "8759161081"
+    ],
+    "146.70.192.110": [
+      "7494643195"
+    ],
+    "171.254.79.139": [
+      "999511304"
     ]
   }
 }
