@@ -1,13 +1,34 @@
-import express, { type Express } from "express";
-import cors from "cors";
-import router from "./routes";
+import express, { type Express, type Request, type Response } from "express";
+import http from "http";
 
 const app: Express = express();
 
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const HITCHK_PORT = 23863;
 
-app.use("/api", router);
+app.all("*", (req: Request, res: Response) => {
+  const options: http.RequestOptions = {
+    hostname: "localhost",
+    port: HITCHK_PORT,
+    path: req.url,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: `localhost:${HITCHK_PORT}`,
+    },
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxyReq.on("error", (err) => {
+    if (!res.headersSent) {
+      res.status(502).json({ message: "Proxy error: " + err.message });
+    }
+  });
+
+  req.pipe(proxyReq, { end: true });
+});
 
 export default app;
