@@ -3,12 +3,12 @@ Response masking for sensitive gateway responses.
 
 Rules:
 - hCaptcha / Checkpoint / Captcha responses: NEVER show the real captcha message.
-  50% → random fake display from _FAKE_POOL
-  50% → "Declined" (clean generic, no captcha mention)
+  50% → "Generic Declined - 3DS Bypassed"
+  50% → "Declined" (no mention of captcha)
 
 - 3DS / requires_action responses:
-  50% → random fake display from _FAKE_POOL
-  50% → exact original 3DS response
+  50% → "Generic Declined - 3DS Bypassed"
+  50% → exact response (3DS messages are acceptable)
 """
 
 import random
@@ -24,23 +24,10 @@ _THREED_KEYWORDS = [
     "3ds", "3d secure", "3d_secure", "requires_action",
     "3ds required", "3d_auth", "3ds_authentication",
     "3d_authentication", "three_d_secure",
-    "authentication_required",
+    "authentication_required", "3ds bypassed",
 ]
 
-_FAKE_POOL = [
-    "Generic Declined - 3DS Bypassed",
-    "3DS Bypassed - Generic Decline",
-    "Declined - Fraudulent",
-    "Declined - Payment Failed",
-    "Generic Decline",
-    "Declined - 3DS Bypassed",
-    "Payment Failed - Generic Decline",
-    "Fraudulent - Declined",
-]
-
-
-def _pick_fake() -> str:
-    return random.choice(_FAKE_POOL)
+MASKED_RESPONSE = "Generic Declined - 3DS Bypassed"
 
 
 def _is_captcha(response: str) -> bool:
@@ -63,13 +50,13 @@ def mask_response(response: str) -> str:
 
     if _is_captcha(response):
         if random.random() < 0.5:
-            return _pick_fake()
+            return MASKED_RESPONSE
         else:
             return "Declined"
 
     if _is_3ds(response):
         if random.random() < 0.5:
-            return _pick_fake()
+            return MASKED_RESPONSE
         else:
             return response
 
@@ -79,9 +66,9 @@ def mask_response(response: str) -> str:
 def mask_status(response: str, original_status: str) -> str:
     """
     Return the appropriate status after masking.
-    Captcha/3DS masked responses are treated as DECLINED.
+    Captcha/3DS masked to 'DECLINED' (not APPROVED).
     """
     masked = mask_response(response)
-    if masked != response:
+    if masked in (MASKED_RESPONSE, "Declined"):
         return "DECLINED"
     return original_status
