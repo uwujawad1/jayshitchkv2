@@ -94,13 +94,35 @@ const CAPTCHA_KEYWORDS = ["captcha", "hcaptcha", "h-captcha", "captcha challenge
 const THREED_FAIL_KEYWORDS = ["3ds authentication required", "3ds authentication failed",
   "3ds required", "3d_auth", "authentication_required", "requires_action"];
 
-function fnv1aBool(seed: string): boolean {
+function fnv1aFloat(seed: string): number {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) {
     h ^= seed.charCodeAt(i);
     h = Math.imul(h, 16777619) >>> 0;
   }
-  return (h % 100) < 50;
+  return (h >>> 0) / 4294967296;
+}
+
+type MaskedDisplay = { showBypassed: boolean; showBlocked: boolean; text: string };
+
+const MASK_OUTCOMES: Array<{ w: number; bypassed: boolean; blocked: boolean; text: string }> = [
+  { w: 90,  bypassed: true,  blocked: false, text: "Generic Decline" },
+  { w: 30,  bypassed: false, blocked: true,  text: "Declined" },
+  { w: 4,   bypassed: false, blocked: false, text: "Flagged Fraudulent" },
+  { w: 2,   bypassed: false, blocked: false, text: "Payment Failed" },
+  { w: 2,   bypassed: false, blocked: false, text: "Incorrect CVC" },
+  { w: 0.5, bypassed: false, blocked: false, text: "Insufficient Funds" },
+];
+const MASK_TOTAL = MASK_OUTCOMES.reduce((s, o) => s + o.w, 0);
+
+function getMaskedDisplay(seed: string): MaskedDisplay {
+  const rnd = fnv1aFloat(seed) * MASK_TOTAL;
+  let cum = 0;
+  for (const o of MASK_OUTCOMES) {
+    cum += o.w;
+    if (rnd < cum) return { showBypassed: o.bypassed, showBlocked: o.blocked, text: o.text };
+  }
+  return { showBypassed: true, showBlocked: false, text: "Generic Decline" };
 }
 
 function isCaptchaMessage(msg: string): boolean {
@@ -162,19 +184,12 @@ function ResultRow({ r }: { r: HitResult }) {
   const realBypassed = is3dsBypassed(r.message);
   const realThreeDsFailed = is3dsFailed(r.status, r.message);
   const needsMask = !realBypassed && (isCaptchaMessage(r.message) || is3dsFailMessage(r.message));
-  const showAsBypassed = needsMask;
+  const masked = needsMask ? getMaskedDisplay(r.card + String(r.id)) : null;
 
-  const bypassed = realBypassed || showAsBypassed;
-  const threeDsFailed = realThreeDsFailed && !showAsBypassed;
+  const bypassed = realBypassed || (masked?.showBypassed ?? false);
+  const threeDsFailed = (realThreeDsFailed && !bypassed && !masked) || (masked?.showBlocked ?? false);
 
-  let reason: string;
-  if (showAsBypassed) {
-    reason = "Generic Decline";
-  } else if (needsMask) {
-    reason = "Declined";
-  } else {
-    reason = formatDeclineReason(r.message, realBypassed);
-  }
+  const reason = masked ? masked.text : formatDeclineReason(r.message, realBypassed);
 
   const boxStyle = r.status === "charged"
     ? "border-emerald-500/30 bg-emerald-500/5"
@@ -207,9 +222,11 @@ function ResultRow({ r }: { r: HitResult }) {
       data-testid={`row-result-${r.id}`}
     >
       <div className="flex items-center gap-2">
-        {bypassed && !realBypassed
+        {masked?.showBypassed
           ? <LockOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          : getStatusIcon(r.status)}
+          : masked?.showBlocked
+            ? <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            : getStatusIcon(r.status)}
         <code className="text-[11px] font-mono text-foreground/90">{r.card}</code>
         <div className="flex-1" />
         {bypassed && (
