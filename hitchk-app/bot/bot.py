@@ -160,6 +160,13 @@ AUTO_DELETE_DELAY = 60
 
 async def auto_delete_message(msg, delay=AUTO_DELETE_DELAY):
     try:
+        _cfg_ad = json.load(open(os.path.join(os.path.dirname(__file__), "config.json")))
+        _logs_gid = str(_cfg_ad.get("logs_group_id", "")).strip()
+        if _logs_gid and str(getattr(msg, "chat_id", "")) == _logs_gid:
+            return
+    except Exception:
+        pass
+    try:
         await asyncio.sleep(delay)
         await msg.delete()
     except Exception:
@@ -7922,6 +7929,13 @@ async def filter_back_cb(event):
 @client.on(events.NewMessage(outgoing=True))
 async def _group_autodelete_outgoing(event):
     if event.is_group:
+        try:
+            _cfg_ad = json.load(open(os.path.join(os.path.dirname(__file__), "config.json")))
+            _logs_gid = str(_cfg_ad.get("logs_group_id", "")).strip()
+            if _logs_gid and str(event.chat_id) == _logs_gid:
+                return
+        except Exception:
+            pass
         asyncio.create_task(auto_delete_message(event.message, AUTO_DELETE_DELAY))
 
 async def main():
