@@ -3707,13 +3707,27 @@ async def gateway_cmd(event):
             bot_tag = BOT_USERNAME or ADMIN_USERNAME
             info_str = f"{brand} - {bin_type} - {level}".upper()
 
+            _captcha_kws = ["captcha", "hcaptcha", "h-captcha", "checkpoint denied", "checkpoint",
+                            "captcha solving failed", "captcha detected", "captcha blocked"]
+            _resp_lower = (r_resp or "").lower()
+            _is_captcha_resp = any(k in _resp_lower for k in _captcha_kws)
+
             if r_status == "charged":
                 header_icon = "\u2705"
                 resp_display = f"Charged \U0001f525"
                 await save_approved_card(cc_str, "CHARGED", r_resp, gate_name, r_site, event.sender_id, first_name)
             elif r_status == "live":
-                header_icon = "\u26a0\ufe0f"
-                resp_display = f"3DS Required \U0001f512"
+                header_icon = "\u274c"
+                if _is_captcha_resp:
+                    if random.random() < 0.5:
+                        resp_display = "Generic Declined - 3DS Bypassed \u26d4"
+                    else:
+                        resp_display = "Declined \u26d4"
+                else:
+                    if random.random() < 0.5:
+                        resp_display = "Generic Declined - 3DS Bypassed \u26d4"
+                    else:
+                        resp_display = f"3DS Required \U0001f512"
             elif r_status == "approved":
                 header_icon = "\u2705"
                 if "ccn live" in r_resp.lower():
@@ -3725,7 +3739,13 @@ async def gateway_cmd(event):
                 await save_approved_card(cc_str, "APPROVED", r_resp, gate_name, r_site, event.sender_id, first_name)
             elif r_status == "declined":
                 header_icon = "\u274c"
-                resp_display = f"Declined \u26d4"
+                if _is_captcha_resp:
+                    if random.random() < 0.5:
+                        resp_display = "Generic Declined - 3DS Bypassed \u26d4"
+                    else:
+                        resp_display = "Declined \u26d4"
+                else:
+                    resp_display = f"Declined \u26d4"
             else:
                 header_icon = "\u2753"
                 _err_display = mask_response(r_resp) if r_resp else r_resp
