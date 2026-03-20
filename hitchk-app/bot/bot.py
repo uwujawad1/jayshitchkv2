@@ -1081,10 +1081,6 @@ async def save_approved_card(card, status, response, gateway, price, user_id=Non
     except Exception:
         pass
     try:
-        asyncio.create_task(asyncio.to_thread(send_bot_group_log, user_name, user_id, card, gateway, response, status))
-    except Exception:
-        pass
-    try:
         asyncio.create_task(asyncio.to_thread(send_logs_group, user_name, user_id, card, gateway, response, status))
     except Exception:
         pass

