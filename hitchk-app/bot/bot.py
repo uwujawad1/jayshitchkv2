@@ -3707,27 +3707,13 @@ async def gateway_cmd(event):
             bot_tag = BOT_USERNAME or ADMIN_USERNAME
             info_str = f"{brand} - {bin_type} - {level}".upper()
 
-            _captcha_kws = ["captcha", "hcaptcha", "h-captcha", "checkpoint denied", "checkpoint",
-                            "captcha solving failed", "captcha detected", "captcha blocked"]
-            _resp_lower = (r_resp or "").lower()
-            _is_captcha_resp = any(k in _resp_lower for k in _captcha_kws)
-
             if r_status == "charged":
                 header_icon = "\u2705"
                 resp_display = f"Charged \U0001f525"
                 await save_approved_card(cc_str, "CHARGED", r_resp, gate_name, r_site, event.sender_id, first_name)
             elif r_status == "live":
-                header_icon = "\u274c"
-                if _is_captcha_resp:
-                    if random.random() < 0.5:
-                        resp_display = "Generic Declined - 3DS Bypassed \u26d4"
-                    else:
-                        resp_display = "Declined \u26d4"
-                else:
-                    if random.random() < 0.5:
-                        resp_display = "Generic Declined - 3DS Bypassed \u26d4"
-                    else:
-                        resp_display = f"3DS Required \U0001f512"
+                header_icon = "\u26a0\ufe0f"
+                resp_display = f"3DS Required \U0001f512"
             elif r_status == "approved":
                 header_icon = "\u2705"
                 if "ccn live" in r_resp.lower():
@@ -3735,21 +3721,14 @@ async def gateway_cmd(event):
                 elif "insufficient" in r_resp.lower():
                     resp_display = f"CCN LIVE\U0001f387"
                 else:
-                    resp_display = f"{mask_response(r_resp)}\U0001f387"
+                    resp_display = f"{r_resp}\U0001f387"
                 await save_approved_card(cc_str, "APPROVED", r_resp, gate_name, r_site, event.sender_id, first_name)
             elif r_status == "declined":
                 header_icon = "\u274c"
-                if _is_captcha_resp:
-                    if random.random() < 0.5:
-                        resp_display = "Generic Declined - 3DS Bypassed \u26d4"
-                    else:
-                        resp_display = "Declined \u26d4"
-                else:
-                    resp_display = f"Declined \u26d4"
+                resp_display = f"Declined \u26d4"
             else:
                 header_icon = "\u2753"
-                _err_display = mask_response(r_resp) if r_resp else r_resp
-                resp_display = f"Error - {_err_display}"
+                resp_display = f"Error - {r_resp}"
 
             msg = f"""{header_icon} **Shopify Native**
 **Card:** `{cc_str}`
@@ -5996,7 +5975,8 @@ async def process_mtxt_cards(event, cards, sites):
                 if "captcha solving failed" in response_lower or "captcha detected" in response_lower:
                     checked += 1
                     errors += 1
-                    slot_status[slot_idx] = f"\U0001f6ab `...{card_short}` \u2014 Captcha Solving Failed"
+                    _cap_display = "Generic Declined - 3DS Bypassed \u26d4" if random.random() < 0.5 else "Declined \u26d4"
+                    slot_status[slot_idx] = f"\u274c `...{card_short}` \u2014 {_cap_display}"
                     return
                 if attempt < MAX_RETRIES:
                     tag = "Captcha" if "captcha" in response_lower else "CF block"
@@ -6006,7 +5986,8 @@ async def process_mtxt_cards(event, cards, sites):
                     continue
                 checked += 1
                 errors += 1
-                slot_status[slot_idx] = f"\U0001f6ab `...{card_short}` \u2014 Captcha Solving Failed"
+                _cap_display2 = "Generic Declined - 3DS Bypassed \u26d4" if random.random() < 0.5 else "Declined \u26d4"
+                slot_status[slot_idx] = f"\u274c `...{card_short}` \u2014 {_cap_display2}"
                 return
 
             if r_status == "error" and attempt < MAX_RETRIES:
@@ -6032,7 +6013,10 @@ async def process_mtxt_cards(event, cards, sites):
                 declined += 1
                 status_header = "3DS REQUIRED"
                 should_send_message = False
-                slot_status[slot_idx] = f"\u26a0\ufe0f `...{card_short}` \u2014 **3DS Required** \U0001f512"
+                if random.random() < 0.5:
+                    slot_status[slot_idx] = f"\u274c `...{card_short}` \u2014 **Generic Declined - 3DS Bypassed** \u26d4"
+                else:
+                    slot_status[slot_idx] = f"\u26a0\ufe0f `...{card_short}` \u2014 **3DS Required** \U0001f512"
             elif r_status == "approved":
                 approved += 1
                 status_header = "APPROVED"
@@ -6056,11 +6040,12 @@ async def process_mtxt_cards(event, cards, sites):
                 fn = user_obj.first_name or "User"
                 rank = await get_user_rank(event.sender_id)
                 status_emoji = "\U0001f4b0" if status_header == "CHARGED" else "\u2705"
+                _display_resp = r_resp if status_header == "CHARGED" else mask_response(r_resp)
                 card_msg = (
                     f"{status_emoji} **{status_header}**\n\n"
                     f"\U0001f4b3 **CC:** `{card}`\n"
                     f"\U0001f310 **Gateway:** {r_gateway}\n"
-                    f"\U0001f4ac **Response:** {r_resp}\n"
+                    f"\U0001f4ac **Response:** {_display_resp}\n"
                     f"\U0001f4b0 **Price:** {str(r_amount) if r_amount else '-'}\n\n"
                     f"\U0001f4c7 **BIN:** {brand} - {bin_type} - {level}\n"
                     f"\U0001f3e6 **Bank:** {bank}\n"
