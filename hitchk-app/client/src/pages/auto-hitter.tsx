@@ -89,6 +89,30 @@ function getStatusIcon(status: string) {
   }
 }
 
+const CAPTCHA_KEYWORDS = ["captcha", "hcaptcha", "h-captcha", "captcha challenge", "captcha required",
+  "checkpoint denied", "checkpoint", "captcha solving failed", "captcha detected", "captcha blocked"];
+const THREED_KEYWORDS = ["3ds", "3d secure", "3d_secure", "requires_action", "3ds required",
+  "3d_auth", "authentication_required"];
+
+function seededBool(seed: string): boolean {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) { h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0; }
+  return (h & 1) === 0;
+}
+
+function maskResponse(message: string, seed: string): string {
+  const lower = message.toLowerCase();
+  const isCaptcha = CAPTCHA_KEYWORDS.some(k => lower.includes(k));
+  const is3ds = !isCaptcha && THREED_KEYWORDS.some(k => lower.includes(k));
+  if (isCaptcha) {
+    return seededBool(seed) ? "Generic Declined - 3DS Bypassed" : "Declined";
+  }
+  if (is3ds) {
+    return seededBool(seed) ? "Generic Declined - 3DS Bypassed" : message;
+  }
+  return message;
+}
+
 const DECLINE_MAP: Record<string, string> = {
   "generic_decline": "Generic Decline",
   "card_declined": "Card Declined",
@@ -113,7 +137,7 @@ const DECLINE_MAP: Record<string, string> = {
   "payment method failed": "Payment Failed",
 };
 
-function formatDeclineReason(message: string, wasBypassed: boolean): string {
+function formatDeclineReason(message: string, wasBypassed: boolean, seed = ""): string {
   const clean = message
     .replace(/\(3DS Bypassed\)/gi, "")
     .replace(/\(3DS Cancelled\)/gi, "")
@@ -131,6 +155,9 @@ function formatDeclineReason(message: string, wasBypassed: boolean): string {
     return "3DS Could Not Be Bypassed";
   }
 
+  const masked = maskResponse(clean, seed);
+  if (masked !== clean) return masked;
+
   for (const [key, label] of Object.entries(DECLINE_MAP)) {
     if (lower.includes(key)) return label;
   }
@@ -141,7 +168,7 @@ function formatDeclineReason(message: string, wasBypassed: boolean): string {
 function ResultRow({ r }: { r: HitResult }) {
   const bypassed = is3dsBypassed(r.message);
   const threeDsFailed = is3dsFailed(r.status, r.message);
-  const reason = formatDeclineReason(r.message, bypassed);
+  const reason = formatDeclineReason(r.message, bypassed, String(r.id));
 
   const boxStyle = r.status === "charged"
     ? "border-emerald-500/30 bg-emerald-500/5"
