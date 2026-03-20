@@ -13,7 +13,7 @@ import {
   Target, Loader2, Copy, ArrowLeft, Crown,
   ShieldCheck, XCircle, AlertTriangle, CreditCard, Sparkles, Clock, ChevronDown, ChevronUp,
   Save, Trash2, Star, Zap, Globe, DollarSign, Lock, LockOpen, Store, CheckCircle2, Hash,
-  Eye, EyeOff, FileText, ShoppingCart
+  FileText, ShoppingCart
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -296,9 +296,6 @@ export default function AutoHitterPage() {
   const [savedBins, setSavedBins] = useState<{ bin: string; label: string }[]>([]);
   const [saveBinLabel, setSaveBinLabel] = useState("");
   const [showSaveBin, setShowSaveBin] = useState(false);
-  const [siteVisible, setSiteVisible] = useState<boolean>(true);
-  const [siteVisibleSaving, setSiteVisibleSaving] = useState(false);
-
   useEffect(() => {
     fetch("/api/tools/hitter-history", { credentials: "include" })
       .then(r => r.json())
@@ -308,33 +305,7 @@ export default function AutoHitterPage() {
       .then(r => r.json())
       .then(d => setSavedBins(d.bins || []))
       .catch(() => {});
-    fetch("/api/user/hitter/site-visible", { credentials: "include" })
-      .then(r => r.json())
-      .then(d => { if (typeof d.siteVisible === "boolean") setSiteVisible(d.siteVisible); })
-      .catch(() => {});
   }, []);
-
-  const handleToggleSiteVisible = async () => {
-    const newVal = !siteVisible;
-    setSiteVisibleSaving(true);
-    try {
-      const res = await fetch("/api/user/hitter/site-visible", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ siteVisible: newVal }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSiteVisible(newVal);
-        toast({ title: newVal ? "Site name will be shown in group log" : "Site name hidden from group log" });
-      }
-    } catch {
-      toast({ title: "Failed to save preference", variant: "destructive" });
-    } finally {
-      setSiteVisibleSaving(false);
-    }
-  };
 
   const handleSaveBin = async () => {
     const bin = binInput.trim();
@@ -851,23 +822,6 @@ export default function AutoHitterPage() {
                     </div>
                   </TabsContent>
                 </Tabs>
-
-                <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    {siteVisible ? <Eye className="w-3.5 h-3.5 text-primary" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
-                    <span className="text-xs text-muted-foreground">Show Site in Group Log</span>
-                  </div>
-                  <button
-                    onClick={handleToggleSiteVisible}
-                    disabled={siteVisibleSaving}
-                    data-testid="toggle-site-visible"
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${siteVisible ? "bg-primary" : "bg-muted"} ${siteVisibleSaving ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                  >
-                    <span
-                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${siteVisible ? "translate-x-[18px]" : "translate-x-[2px]"}`}
-                    />
-                  </button>
-                </div>
 
                 <AnimatePresence>
                 {merchantInfo && (
