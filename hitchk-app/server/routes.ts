@@ -1383,6 +1383,32 @@ export async function registerRoutes(
     }
   });
 
+  // ── Logs Group config ────────────────────────────────────────────────────
+  const LOGS_CFG_PATH = path.join(process.cwd(), "bot", "config.json");
+  app.get("/api/admin/logs-config", requireAdmin, (_req, res) => {
+    try {
+      let cfg: Record<string, any> = {};
+      try { cfg = JSON.parse(fs.readFileSync(LOGS_CFG_PATH, "utf-8")); } catch {}
+      res.json({ logsGroupId: cfg.logs_group_id || "" });
+    } catch (err: any) {
+      res.json({ logsGroupId: "" });
+    }
+  });
+
+  app.put("/api/admin/logs-config", requireAdmin, (req, res) => {
+    try {
+      const { logsGroupId } = req.body;
+      let cfg: Record<string, any> = {};
+      try { cfg = JSON.parse(fs.readFileSync(LOGS_CFG_PATH, "utf-8")); } catch {}
+      if (logsGroupId !== undefined) cfg.logs_group_id = String(logsGroupId).trim();
+      fs.writeFileSync(LOGS_CFG_PATH, JSON.stringify(cfg, null, 2));
+      _configJsonCache = null;
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/bot/settings", requireAdmin, (_req, res) => {
     try {
       const settings = botManager.getBotSettings();

@@ -43,6 +43,8 @@ export default function SettingsPage() {
   const [captchaaiKey, setCaptchaaiKey] = useState("");
   const [showNopechaKey, setShowNopechaKey] = useState(false);
   const [captchaKeysSaved, setCaptchaKeysSaved] = useState(false);
+  const [logsGroupId, setLogsGroupId] = useState("");
+  const [logsGroupSaved, setLogsGroupSaved] = useState(false);
 
   const { data: config, isLoading } = useQuery<BotConfig>({
     queryKey: ["/api/bot/config"],
@@ -163,6 +165,27 @@ export default function SettingsPage() {
       toast({ title: "Captcha keys saved — active immediately, no restart needed" });
     },
     onError: (err: any) => toast({ title: err.message || "Failed to save keys", variant: "destructive" }),
+  });
+
+  const { data: logsConfig } = useQuery<{ logsGroupId: string }>({
+    queryKey: ["/api/admin/logs-config"],
+  });
+
+  useEffect(() => {
+    if (logsConfig) {
+      setLogsGroupId(logsConfig.logsGroupId || "");
+    }
+  }, [logsConfig]);
+
+  const saveLogsConfig = useMutation({
+    mutationFn: () => apiRequest("PUT", "/api/admin/logs-config", { logsGroupId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/logs-config"] });
+      setLogsGroupSaved(true);
+      setTimeout(() => setLogsGroupSaved(false), 2500);
+      toast({ title: "Logs Group ID saved successfully" });
+    },
+    onError: (err: any) => toast({ title: err.message || "Failed to save logs config", variant: "destructive" }),
   });
 
   useEffect(() => {
@@ -874,6 +897,47 @@ export default function SettingsPage() {
               }
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Logs Group Card ──────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-4">
+          <Users className="w-4 h-4 text-muted-foreground" />
+          <CardTitle className="text-base">Logs Group</CardTitle>
+          {logsGroupSaved && (
+            <Badge variant="secondary" className="ml-auto text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+              Saved
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            A separate Telegram group where <strong>all check and hitter results</strong> are logged. Logs in this group are <strong>never auto-deleted</strong>. Users do <strong>not</strong> need to join this group — it is write-only for the bot.
+          </p>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Logs Group ID</label>
+            <Input
+              type="text"
+              value={logsGroupId}
+              onChange={(e) => setLogsGroupId(e.target.value)}
+              placeholder="e.g. -1001234567890"
+              className="font-mono text-sm"
+              data-testid="input-logs-group-id"
+            />
+            <p className="text-xs text-muted-foreground">
+              Use a negative ID for supergroups (e.g. <code className="bg-muted px-1 py-0.5 rounded text-xs">-1001234567890</code>). Add the bot as an admin in this group first. This is separate from the force-join group.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            disabled={saveLogsConfig.isPending}
+            onClick={() => saveLogsConfig.mutate()}
+            data-testid="button-save-logs-group"
+          >
+            {saveLogsConfig.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            Save Logs Group
+          </Button>
         </CardContent>
       </Card>
 
