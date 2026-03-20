@@ -84,7 +84,7 @@ def send_group_log(user_name, user_id, card, gateway, response_msg, log_type="ch
         return
 
     bot_token = config.get("TELEGRAM_BOT_TOKEN", "")
-    group_id = config.get("TELEGRAM_GROUP_ID", "")
+    group_id = config.get("logs_group_id", "") or config.get("TELEGRAM_GROUP_ID", "")
     admin_id = config.get("TELEGRAM_ADMIN_ID", "")
     if not bot_token or not group_id:
         print(json.dumps({"sent": False, "error": "No bot token or group ID"}))

