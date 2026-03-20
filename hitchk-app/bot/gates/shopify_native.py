@@ -6,7 +6,15 @@ import time
 import random
 import string
 import logging
+import sys
+import os
 from urllib.parse import urlparse
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+try:
+    from curl_compat import ChromeSession
+except ImportError:
+    ChromeSession = None
 
 logger = logging.getLogger(__name__)
 
@@ -217,8 +225,18 @@ async def _shopify_check(session, domain, cc, mm, yy, cvv, progress_cb=None):
 
     headers = {
         'User-Agent': UA,
-        'Accept': '*/*',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
         'Content-Type': 'application/json',
+        'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'X-Requested-With': 'XMLHttpRequest',
+        'DNT': '1',
     }
 
     await _progress(f"Finding product on {domain}...")
@@ -843,9 +861,10 @@ async def shopify_native_check(cc, mm, yy, cvv, proxy=None, progress_cb=None):
         "No shipping available", "Domain not found", "SSL error", "Connection timeout",
     )
 
+    _Session = ChromeSession if ChromeSession else aiohttp.ClientSession
     for site in sites[:5]:
         try:
-            async with aiohttp.ClientSession(
+            async with _Session(
                 timeout=aiohttp.ClientTimeout(total=90),
                 connector=aiohttp.TCPConnector(ssl=False),
             ) as session:
@@ -969,10 +988,12 @@ def _classify_shopify_response(amount, response, gw_name, site, elapsed):
 async def shopify_native_check_rich(cc, mm, yy, cvv, site=None, progress_cb=None):
     start = time.time()
 
+    _Session = ChromeSession if ChromeSession else aiohttp.ClientSession
+
     if site:
         clean_site = site.replace("https://", "").replace("http://", "").rstrip("/")
         try:
-            async with aiohttp.ClientSession(
+            async with _Session(
                 timeout=aiohttp.ClientTimeout(total=90),
                 connector=aiohttp.TCPConnector(ssl=False),
             ) as session:
@@ -1002,7 +1023,7 @@ async def shopify_native_check_rich(cc, mm, yy, cvv, site=None, progress_cb=None
 
     for s in sites[:5]:
         try:
-            async with aiohttp.ClientSession(
+            async with _Session(
                 timeout=aiohttp.ClientTimeout(total=90),
                 connector=aiohttp.TCPConnector(ssl=False),
             ) as session:
