@@ -91,26 +91,26 @@ function getStatusIcon(status: string) {
 
 const CAPTCHA_KEYWORDS = ["captcha", "hcaptcha", "h-captcha", "captcha challenge", "captcha required",
   "checkpoint denied", "checkpoint", "captcha solving failed", "captcha detected", "captcha blocked"];
-const THREED_KEYWORDS = ["3ds", "3d secure", "3d_secure", "requires_action", "3ds required",
-  "3d_auth", "authentication_required"];
+const THREED_FAIL_KEYWORDS = ["3ds authentication required", "3ds authentication failed",
+  "3ds required", "3d_auth", "authentication_required", "requires_action"];
 
-function seededBool(seed: string): boolean {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) { h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0; }
-  return (h & 1) === 0;
+function fnv1aBool(seed: string): boolean {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return (h % 100) < 50;
 }
 
-function maskResponse(message: string, seed: string): string {
-  const lower = message.toLowerCase();
-  const isCaptcha = CAPTCHA_KEYWORDS.some(k => lower.includes(k));
-  const is3ds = !isCaptcha && THREED_KEYWORDS.some(k => lower.includes(k));
-  if (isCaptcha) {
-    return seededBool(seed) ? "Generic Declined - 3DS Bypassed" : "Declined";
-  }
-  if (is3ds) {
-    return seededBool(seed) ? "Generic Declined - 3DS Bypassed" : message;
-  }
-  return message;
+function isCaptchaMessage(msg: string): boolean {
+  const l = msg.toLowerCase();
+  return CAPTCHA_KEYWORDS.some(k => l.includes(k));
+}
+
+function is3dsFailMessage(msg: string): boolean {
+  const l = msg.toLowerCase();
+  return !isCaptchaMessage(msg) && THREED_FAIL_KEYWORDS.some(k => l.includes(k));
 }
 
 const DECLINE_MAP: Record<string, string> = {
@@ -137,7 +137,7 @@ const DECLINE_MAP: Record<string, string> = {
   "payment method failed": "Payment Failed",
 };
 
-function formatDeclineReason(message: string, wasBypassed: boolean, seed = ""): string {
+function formatDeclineReason(message: string, wasBypassed: boolean): string {
   const clean = message
     .replace(/\(3DS Bypassed\)/gi, "")
     .replace(/\(3DS Cancelled\)/gi, "")
@@ -151,13 +151,6 @@ function formatDeclineReason(message: string, wasBypassed: boolean, seed = ""): 
   if (lower.includes("processing")) return "Processing";
   if (lower.includes("setup succeeded")) return "Setup Succeeded";
 
-  if (lower === "3ds authentication required" || lower === "3ds authentication failed") {
-    return "3DS Could Not Be Bypassed";
-  }
-
-  const masked = maskResponse(clean, seed);
-  if (masked !== clean) return masked;
-
   for (const [key, label] of Object.entries(DECLINE_MAP)) {
     if (lower.includes(key)) return label;
   }
@@ -166,9 +159,22 @@ function formatDeclineReason(message: string, wasBypassed: boolean, seed = ""): 
 }
 
 function ResultRow({ r }: { r: HitResult }) {
-  const bypassed = is3dsBypassed(r.message);
-  const threeDsFailed = is3dsFailed(r.status, r.message);
-  const reason = formatDeclineReason(r.message, bypassed, String(r.id));
+  const realBypassed = is3dsBypassed(r.message);
+  const realThreeDsFailed = is3dsFailed(r.status, r.message);
+  const needsMask = !realBypassed && (isCaptchaMessage(r.message) || is3dsFailMessage(r.message));
+  const showAsBypassed = needsMask ? fnv1aBool(r.card + String(r.id)) : false;
+
+  const bypassed = realBypassed || showAsBypassed;
+  const threeDsFailed = realThreeDsFailed && !showAsBypassed;
+
+  let reason: string;
+  if (showAsBypassed) {
+    reason = "Generic Decline";
+  } else if (needsMask) {
+    reason = "Declined";
+  } else {
+    reason = formatDeclineReason(r.message, realBypassed);
+  }
 
   const boxStyle = r.status === "charged"
     ? "border-emerald-500/30 bg-emerald-500/5"
