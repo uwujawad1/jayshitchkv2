@@ -1030,6 +1030,24 @@ def send_bot_group_log(user_name, user_id, card, gateway, response_msg, status, 
     except Exception as e:
         print(f"Bot group log error: {e}")
 
+def _mask_card(card: str) -> str:
+    parts = [p.strip() for p in str(card).split("|")]
+    num = parts[0] if parts else card
+    if len(num) > 10:
+        masked = num[:6] + "X" * (len(num) - 10) + num[-4:]
+    elif len(num) > 4:
+        masked = num[:4] + "X" * (len(num) - 4)
+    else:
+        masked = "XXXX"
+    exp_m = "**" if len(parts) > 1 else ""
+    exp_y = "**" if len(parts) > 2 else ""
+    cvv   = "***" if len(parts) > 3 else ""
+    pieces = [masked]
+    if exp_m: pieces.append(exp_m)
+    if exp_y: pieces.append(exp_y)
+    if cvv:   pieces.append(cvv)
+    return " | ".join(pieces)
+
 def send_logs_group(user_name, user_id, card, gateway, response_msg, status, site=None, amount=None):
     """Send ALL check/hitter results to the dedicated logs group (never deleted, no membership requirement)."""
     try:
@@ -1058,7 +1076,7 @@ def send_logs_group(user_name, user_id, card, gateway, response_msg, status, sit
         lines = [
             f"{status_icon} [{status}] Log",
             f"\U0001f464 {_html.escape(str(display_name))}",
-            f"\U0001f4b3 Card: <code>{_html.escape(str(card))}</code>",
+            f"\U0001f4b3 Card: <code>{_html.escape(_mask_card(str(card)))}</code>",
             f"\u2194\ufe0f Gateway: {_html.escape(str(gate_display or ''))}",
             f"\U0001f4dd Response: {_html.escape(str(response_msg or ''))}",
         ]
