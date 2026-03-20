@@ -207,7 +207,9 @@ function ResultRow({ r }: { r: HitResult }) {
       data-testid={`row-result-${r.id}`}
     >
       <div className="flex items-center gap-2">
-        {getStatusIcon(r.status)}
+        {bypassed && !realBypassed
+          ? <LockOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          : getStatusIcon(r.status)}
         <code className="text-[11px] font-mono text-foreground/90">{r.card}</code>
         <div className="flex-1" />
         {bypassed && (
@@ -590,8 +592,8 @@ export default function AutoHitterPage() {
   };
 
   const charged = results.filter(r => r.status === "charged" || r.status === "approved");
-  const bypassed = results.filter(r => is3dsBypassed(r.message));
-  const threeds = results.filter(r => is3dsFailed(r.status, r.message));
+  const bypassed = results.filter(r => is3dsBypassed(r.message) || isCaptchaMessage(r.message) || is3dsFailMessage(r.message));
+  const threeds: typeof results = [];
   const declined = results.filter(r => r.status === "live_declined" || r.status === "declined");
   const errors = results.filter(r => r.status === "error");
 
