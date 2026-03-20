@@ -1059,14 +1059,6 @@ def send_logs_group(user_name, user_id, card, gateway, response_msg, status, sit
         if not bot_token or not logs_group_id or logs_group_id == "0":
             return
         import html as _html
-        if status in ("CHARGED",):
-            status_icon = "\U0001f525"
-        elif status in ("APPROVED",):
-            status_icon = "\u2705"
-        elif status in ("DECLINED",):
-            status_icon = "\u274c"
-        else:
-            status_icon = "\u2753"
         display_name = user_name or str(user_id)
         tier = get_user_tier(user_id) if user_id else "free"
         tier_labels = {"free": "Free", "silver": "Silver", "gold": "Gold"}
@@ -1074,17 +1066,24 @@ def send_logs_group(user_name, user_id, card, gateway, response_msg, status, sit
         display_name = f"{display_name} [{tier_tag}]"
         gate_display = GATEWAY_DISPLAY_NAMES.get(gateway, gateway) if gateway else gateway
         lines = [
-            f"{status_icon} [{status}] Log",
+            "\U0001f525 HIT DETECTED \u26a1",
             f"\U0001f464 {_html.escape(str(display_name))}",
-            f"\U0001f4b3 Card: <code>{_html.escape(_mask_card(str(card)))}</code>",
             f"\u2194\ufe0f Gateway: {_html.escape(str(gate_display or ''))}",
-            f"\U0001f4dd Response: {_html.escape(str(response_msg or ''))}",
+            f"\u2705 Response: {_html.escape(str(response_msg or ''))}",
         ]
         if site:
             lines.append(f"\U0001f310 Site: {_html.escape(str(site))}")
         if amount:
             lines.append(f"\U0001f4b0 Amount: {_html.escape(str(amount))}")
+        try:
+            _cfg2 = json.load(open(config_path))
+            _bu = requests.get(f"https://api.telegram.org/bot{bot_token}/getMe", timeout=5).json()
+            _bot_uname = _bu.get("result", {}).get("username", "")
+        except Exception:
+            _bot_uname = ""
         text = "\n".join(lines)
+        if _bot_uname:
+            text += f'\n<a href="https://t.me/{_bot_uname}/web">Open HIT Checker</a>'
         requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", json={
             "chat_id": int(logs_group_id),
             "text": text,
