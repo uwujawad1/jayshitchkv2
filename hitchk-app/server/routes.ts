@@ -2539,7 +2539,7 @@ export async function registerRoutes(
       if (data.error) return res.status(400).json({ error: data.error });
 
       const cardClean = card.replace(/\|/g, "|");
-      const userName = [req.session?.firstName, req.session?.lastName].filter(Boolean).join(" ") || req.session?.userId || "";
+      const userName = [req.session?.firstName, req.session?.lastName].filter(Boolean).join(" ") || req.session?.username || req.session?.userId || "";
 
       if (data.status === "charged" && req.session?.userId) {
         const botDir2 = path.resolve(process.cwd(), "bot");
@@ -2563,7 +2563,7 @@ export async function registerRoutes(
         incrementUsage(req.session.userId, "hitterHits");
         incrementIpHitterUsage(reqIp);
         saveChargedCC(cardClean, "Stripe CO", req.session.userId, userName);
-        sendGroupLog(userName, req.session.userId, cardClean, "Stripe CO", data.message || "Charged", "auto_hitter");
+        sendGroupLog(userName, req.session.userId, cardClean, "Stripe CO", data.message || "Charged", "auto_hitter", merchantName, amount, adminSite);
         addActivity({
           type: "hit",
           userName,
@@ -2685,7 +2685,7 @@ export async function registerRoutes(
       if (data.error) return res.status(400).json({ error: data.error });
 
       const cardClean = card.replace(/\|/g, "|");
-      const userName = [req.session?.firstName, req.session?.lastName].filter(Boolean).join(" ") || req.session?.userId || "";
+      const userName = [req.session?.firstName, req.session?.lastName].filter(Boolean).join(" ") || req.session?.username || req.session?.userId || "";
 
       if (data.status === "charged" && req.session?.userId) {
         const botDir2 = path.resolve(process.cwd(), "bot");
@@ -2707,7 +2707,7 @@ export async function registerRoutes(
         incrementUsage(req.session.userId, "hitterHits");
         incrementIpHitterUsage(reqIp);
         saveChargedCC(cardClean, "Stripe Invoice", req.session.userId, userName);
-        sendGroupLog(userName, req.session.userId, cardClean, "Stripe Invoice", data.message || "Charged", "auto_hitter");
+        sendGroupLog(userName, req.session.userId, cardClean, "Stripe Invoice", data.message || "Charged", "auto_hitter", merchantName, amount);
         addActivity({
           type: "hit",
           userName,
@@ -2828,7 +2828,7 @@ export async function registerRoutes(
       if (data.error) return res.status(400).json({ error: data.error });
 
       const cardClean = card.replace(/\|/g, "|");
-      const userName = [req.session?.firstName, req.session?.lastName].filter(Boolean).join(" ") || req.session?.userId || "";
+      const userName = [req.session?.firstName, req.session?.lastName].filter(Boolean).join(" ") || req.session?.username || req.session?.userId || "";
 
       if ((data.status === "charged" || data.status === "approved") && req.session?.userId) {
         const botDir2 = path.resolve(process.cwd(), "bot");
@@ -2849,7 +2849,7 @@ export async function registerRoutes(
         if (data.status === "charged") {
           saveChargedCC(cardClean, "Stripe Billing", req.session.userId, userName);
         }
-        sendGroupLog(userName, req.session.userId, cardClean, "Stripe Billing", data.message || (data.status === "charged" ? "Charged" : "Approved"), "auto_hitter");
+        sendGroupLog(userName, req.session.userId, cardClean, "Stripe Billing", data.message || (data.status === "charged" ? "Charged" : "Approved"), "auto_hitter", site);
         addActivity({
           type: "hit",
           userName,
