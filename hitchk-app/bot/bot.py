@@ -2231,24 +2231,66 @@ async def msktxt_stop_cb(event):
     else:
         await event.answer("No active mass SK check found.", alert=True)
 
+_broadcast_pending: set = set()
+
+async def _do_broadcast(reply_target, message_obj=None, text_only: str = ""):
+    users = await load_json(USERS_FILE)
+    sent = failed = 0
+    prog = await reply_target.reply(f"📡 Broadcasting to {len(users)} users...")
+    for user_id in list(users.keys()):
+        try:
+            if message_obj:
+                await client.send_message(int(user_id), message_obj)
+            else:
+                await client.send_message(int(user_id), text_only)
+            sent += 1
+        except Exception:
+            failed += 1
+        await asyncio.sleep(0.05)
+    try:
+        await prog.edit(
+            f"✅ **Broadcast complete!**\n"
+            f"📨 Sent: **{sent}**\n"
+            f"❌ Failed: **{failed}**"
+        )
+    except Exception:
+        await reply_target.reply(f"✅ Broadcast done — Sent: {sent} | Failed: {failed}")
+
+@client.on(events.NewMessage(pattern=r'(?i)^[/]broadcast(?:\s+([\s\S]+))?$'))
+async def broadcast_cmd(event):
+    if event.sender_id not in ADMIN_ID:
+        return await event.reply("❌ Admin only.")
+    inline_text = (event.pattern_match.group(1) or "").strip()
+    if inline_text:
+        await _do_broadcast(event, text_only=inline_text)
+        return
+    _broadcast_pending.add(event.sender_id)
+    await event.reply(
+        "📣 **Broadcast Mode**\n\n"
+        "Send the message you want to broadcast to all users.\n"
+        "_(Supports text, photos, videos, files)_"
+    )
+
+@client.on(events.NewMessage(from_users=list(ADMIN_ID) if ADMIN_ID else []))
+async def broadcast_collect(event):
+    if event.sender_id not in _broadcast_pending:
+        return
+    if event.text and event.text.startswith('/'):
+        _broadcast_pending.discard(event.sender_id)
+        return
+    _broadcast_pending.discard(event.sender_id)
+    await _do_broadcast(event, message_obj=event.message)
+
 @client.on(events.CallbackQuery(data=b"broadcast_start"))
 async def broadcast_start(event):
     if event.sender_id not in ADMIN_ID: return
     await event.answer()
-    await event.reply("**Send the message you want to broadcast.**")
-    @client.on(events.NewMessage(from_users=ADMIN_ID))
-    async def process_broadcast(msg_event):
-        if msg_event.text.startswith('/'): return
-        client.remove_event_handler(process_broadcast)
-        users = await load_json(USERS_FILE)
-        count = 0
-        for user_id in users:
-            try:
-                await client.send_message(int(user_id), msg_event.message)
-                count += 1
-                await asyncio.sleep(0.1)
-            except: pass
-        await msg_event.reply(f"**Broadcast complete! Sent to {count} users.**")
+    _broadcast_pending.add(event.sender_id)
+    await event.reply(
+        "📣 **Broadcast Mode**\n\n"
+        "Send the message you want to broadcast to all users.\n"
+        "_(Supports text, photos, videos, files)_"
+    )
 
 
 @client.on(events.NewMessage(pattern=r'(?i)^[/]admin$'))
