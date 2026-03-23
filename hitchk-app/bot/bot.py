@@ -2235,26 +2235,36 @@ _broadcast_pending: set = set()
 
 async def _do_broadcast(reply_target, message_obj=None, text_only: str = ""):
     users = await load_json(USERS_FILE)
+    user_ids = list(users.keys())
+    total = len(user_ids)
     sent = failed = 0
-    prog = await reply_target.reply(f"📡 Broadcasting to {len(users)} users...")
-    for user_id in list(users.keys()):
+    prog = await reply_target.reply(f"📡 Broadcasting to {total} users...\n⏳ 0/{total}")
+    for i, user_id in enumerate(user_ids, 1):
         try:
             if message_obj:
-                await client.send_message(int(user_id), message_obj)
+                await asyncio.wait_for(client.send_message(int(user_id), message_obj), timeout=8)
             else:
-                await client.send_message(int(user_id), text_only)
+                await asyncio.wait_for(client.send_message(int(user_id), text_only), timeout=8)
             sent += 1
         except Exception:
             failed += 1
         await asyncio.sleep(0.05)
+        if i % 100 == 0 or i == total:
+            try:
+                await prog.edit(
+                    f"📡 Broadcasting to {total} users...\n"
+                    f"⏳ {i}/{total} — ✅ {sent} sent, ❌ {failed} failed"
+                )
+            except Exception:
+                pass
     try:
         await prog.edit(
             f"✅ **Broadcast complete!**\n"
-            f"📨 Sent: **{sent}**\n"
+            f"📨 Sent: **{sent}** / {total}\n"
             f"❌ Failed: **{failed}**"
         )
     except Exception:
-        await reply_target.reply(f"✅ Broadcast done — Sent: {sent} | Failed: {failed}")
+        await reply_target.reply(f"✅ Broadcast done — Sent: {sent}/{total} | Failed: {failed}")
 
 @client.on(events.NewMessage(pattern=r'(?i)^[/]broadcast(?:\s+([\s\S]+))?$'))
 async def broadcast_cmd(event):
