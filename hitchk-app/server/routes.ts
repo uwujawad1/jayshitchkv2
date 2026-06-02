@@ -6,6 +6,8 @@ import * as fs from "fs";
 import * as crypto from "crypto";
 import { botManager } from "./botManager";
 import { saveAllJsonFiles, saveJsonFile } from "./json-persistence";
+import { getBooleanConfig, getConfigValue, updateRuntimeSettings } from "./env-config";
+import { createPgPoolConfig } from "./pg-config";
 
 // ── Cloudflare helpers ────────────────────────────────────────────────────
 // Source: https://www.cloudflare.com/ips/
@@ -51,7 +53,6 @@ function getClientIp(req: Request): string {
 
 let _userHitterPrefsCache: Record<string, { hide_site: boolean }> | null = null;
 let _cfConfigCache: { cfOnly: boolean } | null = null;
-let _configJsonCache: Record<string, any> | null = null;
 let _bannedUsersCache: Set<string> | null = null;
 let _bannedUsersCacheAt = 0;
 const BANNED_CACHE_TTL = 60_000; // re-read banned list from disk at most every 60s
@@ -71,13 +72,7 @@ function saveUserHitterPrefs(prefs: Record<string, { hide_site: boolean }>) {
 function getUserSiteVisible(userId: string): boolean {
   const prefs = getUserHitterPrefs();
   if (prefs[userId] !== undefined) return !prefs[userId].hide_site;
-  // fall back to global config default (cached)
-  try {
-    if (_configJsonCache === null) {
-      _configJsonCache = JSON.parse(fs.readFileSync(path.join(process.cwd(), "bot", "config.json"), "utf-8"));
-    }
-    return _configJsonCache!.hitter_site_visible !== false;
-  } catch { return true; }
+  return getBooleanConfig("HITTER_SITE_VISIBLE", true);
 }
 
 // CF-only mode config
@@ -95,9 +90,8 @@ function saveCfConfig(cfg: { cfOnly: boolean }) {
 
 function sendLogsGroupTelegram(card: string, gateway: string, response: string, status: string, userName: string, userId: string) {
   try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "bot", "config.json"), "utf-8"));
-    const botToken = (cfg.TELEGRAM_BOT_TOKEN || "").trim();
-    const logsGroupId = String(cfg.logs_group_id || "").trim();
+    const botToken = getConfigValue("TELEGRAM_BOT_TOKEN").trim();
+    const logsGroupId = getConfigValue("LOGS_GROUP_ID").trim();
     if (!botToken || !logsGroupId || logsGroupId === "0" || logsGroupId === "") return;
     const s = (status || "").toUpperCase();
     const icon = s === "CHARGED" ? "\uD83D\uDD25" : s === "APPROVED" ? "\u2705" : s === "3DS" ? "\uD83D\uDD10" : "\u274C";
@@ -145,6 +139,7 @@ function saveUserProxies(data: Record<string, { proxies: string[] }>) {
   _userProxiesCache = data;
   _userProxiesCacheAt = Date.now();
   fs.writeFileSync(_userProxiesPath, JSON.stringify(data, null, 2));
+  saveJsonFile("user_proxies.json").catch(() => {});
   debouncedSaveJson();
 }
 
@@ -249,6 +244,48 @@ function isRegisteredUser(userId: string): boolean {
   return _registeredUsersCache.has(userId);
 }
 
+function registerTelegramUser(userId: string) {
+  let data: Record<string, any> = {};
+  try {
+    if (fs.existsSync(_usersFilePath)) {
+      data = JSON.parse(fs.readFileSync(_usersFilePath, "utf-8"));
+    }
+  } catch {}
+
+  if (!data[userId]) {
+    data[userId] = { joined_at: new Date().toISOString() };
+    fs.writeFileSync(_usersFilePath, JSON.stringify(data, null, 2));
+    _registeredUsersCache = new Set(Object.keys(data));
+    _registeredUsersCacheAt = Date.now();
+    saveJsonFile("users.json").catch(() => {});
+  }
+}
+
+function ensurePersistedUser(userId: string) {
+  if (!userId) return;
+  if (!isRegisteredUser(userId)) {
+    registerTelegramUser(userId);
+  }
+}
+
+async function sendTelegramMessage(chatId: string | number, text: string, extra: Record<string, unknown> = {}) {
+  const token = getConfigValue("TELEGRAM_BOT_TOKEN");
+  if (!token) return false;
+
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: typeof chatId === "string" ? parseInt(chatId, 10) : chatId,
+      text,
+      ...extra,
+    }),
+  });
+
+  const data = await response.json() as { ok?: boolean };
+  return !!data.ok;
+}
+
 type UserTier = "free" | "silver" | "gold";
 
 interface TierEntry {
@@ -335,6 +372,7 @@ function loadUserTiers(): Record<string, TierEntry> {
 function saveUserTiers(data: Record<string, TierEntry>) {
   _userTiersCache = data;
   fs.writeFileSync(tierFilePath, JSON.stringify(data, null, 2));
+  saveJsonFile("user_tiers.json").catch(() => {});
   debouncedSaveJson();
 }
 
@@ -391,6 +429,7 @@ function saveDailyUsageToFile(): void {
       obj[uid] = entry;
     }
     fs.writeFileSync(DAILY_USAGE_FILE, JSON.stringify(obj, null, 2));
+    saveJsonFile("daily_usage.json").catch(() => {});
   } catch { }
 }
 
@@ -532,9 +571,11 @@ export async function registerRoutes(
       return false;
     }
 
-    // Allow any .replit.app or .repl.co subdomain (Replit's own deployment proxy)
-    const isReplitDomain = /^https?:\/\/[a-zA-Z0-9-]+\.(replit\.app|repl\.co)(\/|$)/.test(source);
-    if (isReplitDomain) return true;
+    const configuredOrigins = (process.env.ALLOWED_ORIGINS || "")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+    if (configuredOrigins.includes(source)) return true;
 
     if (!allowed.some(a => source.startsWith(a))) {
       res.status(403).json({ message: "Cross-origin API access not allowed." });
@@ -560,7 +601,7 @@ export async function registerRoutes(
       uid = userId.trim();
 
       if (isUserBanned(uid)) {
-        return res.status(403).json({ message: "You have been banned. Contact @OGM010 to appeal." });
+        return res.status(403).json({ message: "You have been banned. Contact the JayHits admin to appeal." });
       }
 
       ip = getClientIp(req);
@@ -572,11 +613,6 @@ export async function registerRoutes(
       }
       // Reserve the IP slot immediately to block concurrent requests
       ipRateLimit.set(ip, Date.now());
-
-      if (!isRegisteredUser(uid)) {
-        ipRateLimit.delete(ip);
-        return res.status(404).json({ message: "User not found. Start the bot with /start first." });
-      }
 
       const lastOtp = otpRateLimit.get(uid);
       if (lastOtp && Date.now() - lastOtp < 60000) {
@@ -609,7 +645,7 @@ export async function registerRoutes(
         `⏳ Expires in 5 minutes\n` +
         `⚠️ Do not share this code\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `🌐 Hit Checker Web Login`;
+        `JayHits Web Login`;
 
       const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: "POST",
@@ -623,12 +659,22 @@ export async function registerRoutes(
       const tgData = await tgResp.json() as { ok: boolean; description?: string };
 
       if (tgData.ok) {
+        if (!isRegisteredUser(uid)) {
+          registerTelegramUser(uid);
+        }
         res.json({ success: true, message: "OTP sent to your Telegram" });
       } else {
         otpStore.delete(uid);
         otpRateLimit.delete(uid);
         ipRateLimit.delete(ip);
-        res.status(500).json({ message: tgData.description || "Failed to send OTP. Make sure you've started the bot." });
+        const description = tgData.description || "";
+        const needsStart =
+          /chat not found|bot was blocked by the user|user is deactivated/i.test(description);
+        res.status(needsStart ? 404 : 500).json({
+          message: needsStart
+            ? "User not found. Start the bot with /start first."
+            : (description || "Failed to send OTP. Make sure you've started the bot."),
+        });
       }
     } catch (err: any) {
       otpRateLimit.delete(uid);
@@ -663,7 +709,7 @@ export async function registerRoutes(
     const uid = userId.trim();
 
     if (isUserBanned(uid)) {
-      return res.status(403).json({ message: "You have been banned. Contact @OGM010 to appeal." });
+      return res.status(403).json({ message: "You have been banned. Contact the JayHits admin to appeal." });
     }
 
     const entry = otpStore.get(uid);
@@ -695,6 +741,7 @@ export async function registerRoutes(
     // Success — clear IP failure counter
     verifyFailures.delete(ip);
     otpStore.delete(uid);
+    ensurePersistedUser(uid);
     req.session.userId = uid;
     req.session.isAdmin = isAdminUser(uid);
     req.session.loggedInAt = Date.now();
@@ -802,7 +849,7 @@ export async function registerRoutes(
   app.post("/api/admin/revoke-sessions", requireAdmin, async (_req, res) => {
     try {
       const p = (await import("pg")).default;
-      const pool = new p.Pool({ connectionString: process.env.DATABASE_URL });
+      const pool = new p.Pool(createPgPoolConfig());
       await pool.query("DELETE FROM user_sessions");
       await pool.end();
       res.json({ success: true, message: "All sessions revoked" });
@@ -888,6 +935,7 @@ export async function registerRoutes(
       req.session.destroy(() => {});
       return res.json({ authenticated: false, banned: true });
     }
+    ensurePersistedUser(req.session.userId);
     const pinConfigured = !!process.env.ADMIN_PIN;
     const adminPinVerified = !pinConfigured || !!req.session.adminPinVerified;
     res.json({
@@ -917,9 +965,7 @@ export async function registerRoutes(
       if (cachedBotUsername && Date.now() - botUsernameFetchedAt < 5 * 60 * 1000) {
         return res.json({ username: cachedBotUsername });
       }
-      const configPath = path.resolve(process.cwd(), "bot", "config.json");
-      const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      const token = cfg.TELEGRAM_BOT_TOKEN;
+      const token = getConfigValue("TELEGRAM_BOT_TOKEN");
       if (!token) return res.json({ username: null });
       const resp = await fetch(`https://api.telegram.org/bot${token}/getMe`);
       const data = await resp.json() as any;
@@ -938,17 +984,10 @@ export async function registerRoutes(
   const MEMBERSHIP_CACHE_TTL = 24 * 60 * 60 * 1000;
 
   function getMembershipLinks() {
-    const configPath = path.join(path.resolve(process.cwd(), "bot"), "config.json");
-    let groupLink = "";
-    let channelLink = "";
-    try {
-      if (fs.existsSync(configPath)) {
-        const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-        groupLink = config.TELEGRAM_GROUP_LINK || "";
-        channelLink = config.TELEGRAM_CHANNEL_LINK || "";
-      }
-    } catch {}
-    return { groupLink, channelLink };
+    return {
+      groupLink: getConfigValue("TELEGRAM_GROUP_LINK"),
+      channelLink: getConfigValue("TELEGRAM_CHANNEL_LINK"),
+    };
   }
 
   // ── Avatar serving ─────────────────────────────────────────────────────
@@ -1114,21 +1153,51 @@ export async function registerRoutes(
   function getWebhookSecret(): string {
     const token = botManager.getBotEnvConfig().botToken || process.env.TELEGRAM_BOT_TOKEN || "";
     if (!token) return "";
-    return require("crypto").createHash("sha256").update(token + "wh-salt-ogm").digest("hex").slice(0, 32);
+    return crypto.createHash("sha256").update(token + "jayhits-webhook").digest("hex").slice(0, 32);
   }
 
   function getBotToken(): string {
     return botManager.getBotEnvConfig().botToken || process.env.TELEGRAM_BOT_TOKEN || "";
   }
 
-  // Passive receiver — Telethon (MTProto) handles real logic.
-  // This endpoint exists purely so Telegram accepts the webhook and blocks getUpdates.
-  app.post("/tg-webhook/:secret", (req, res) => {
+  app.post("/tg-webhook/:secret", async (req, res) => {
     const secret = getWebhookSecret();
     if (!secret || req.params.secret !== secret) {
       return res.status(403).send("Forbidden");
     }
-    res.sendStatus(200); // ACK to Telegram — Telethon handles the real processing via MTProto
+
+    res.sendStatus(200);
+
+    try {
+      const update = req.body as any;
+      const message = update?.message;
+      const text = (message?.text || "").trim();
+      const from = message?.from;
+      const chatId = message?.chat?.id;
+
+      if (!message || !from || !chatId || !text) return;
+
+      const command = text.split(/\s+/)[0].toLowerCase();
+      if (!/^\/start(@[a-z0-9_]+)?$/i.test(command)) return;
+
+      const userId = String(from.id);
+      registerTelegramUser(userId);
+
+      const firstName = from.first_name || "there";
+      const botUsername = cachedBotUsername ? `@${cachedBotUsername}` : "the JayHits bot";
+      const welcomeText = [
+        `Welcome to JayHits, ${firstName}.`,
+        "",
+        `Your User ID is: ${userId}`,
+        "",
+        `Use this ID on the JayHits login screen to request an OTP.`,
+        `After that, ${botUsername} will send the OTP here automatically.`,
+      ].join("\n");
+
+      await sendTelegramMessage(chatId, welcomeText);
+    } catch (err: any) {
+      console.error("[telegram-webhook] Failed to process update:", err?.message || err);
+    }
   });
 
   // GET /api/admin/webhook/status
@@ -1172,10 +1241,23 @@ export async function registerRoutes(
           url: webhookUrl,
           max_connections: 40,
           drop_pending_updates: false,
+          allowed_updates: ["message"],
         }),
       });
       const data = await r.json() as any;
       if (data.ok) {
+        await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            commands: [
+              {
+                command: "start",
+                description: "Register and get your JayHits user ID",
+              },
+            ],
+          }),
+        }).catch(() => {});
         console.log(`[webhook] Set Telegram webhook → ${webhookUrl}`);
         res.json({ success: true, url: webhookUrl });
       } else {
@@ -1235,25 +1317,16 @@ export async function registerRoutes(
 
   // GET /api/admin/hitter/site-visible — get current site visibility setting for auto hitter group logs
   app.get("/api/admin/hitter/site-visible", requireAdmin, (_req, res) => {
-    try {
-      const configPath = path.join(process.cwd(), "bot", "config.json");
-      const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      res.json({ siteVisible: cfg.hitter_site_visible !== false });
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
+    res.json({ siteVisible: getBooleanConfig("HITTER_SITE_VISIBLE", true) });
   });
 
   // POST /api/admin/hitter/site-visible — toggle site visibility in auto hitter group logs (global default)
   app.post("/api/admin/hitter/site-visible", requireAdmin, (req: Request, res: Response) => {
     try {
       const { siteVisible } = req.body;
-      const configPath = path.join(process.cwd(), "bot", "config.json");
-      const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      cfg.hitter_site_visible = !!siteVisible;
-      fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
-      console.log(`[hitter] Site visible in group log: ${cfg.hitter_site_visible}`);
-      res.json({ success: true, siteVisible: cfg.hitter_site_visible });
+      updateRuntimeSettings({ HITTER_SITE_VISIBLE: !!siteVisible });
+      console.log(`[hitter] Site visible in group log: ${!!siteVisible}`);
+      res.json({ success: true, siteVisible: !!siteVisible });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -1261,36 +1334,21 @@ export async function registerRoutes(
 
   // GET /api/maintenance — public endpoint, anyone can check maintenance status
   app.get("/api/maintenance", (_req, res) => {
-    try {
-      const configPath = path.join(process.cwd(), "bot", "config.json");
-      const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      res.json({ maintenance: !!cfg.maintenance_mode });
-    } catch {
-      res.json({ maintenance: false });
-    }
+    res.json({ maintenance: getBooleanConfig("MAINTENANCE_MODE", false) });
   });
 
   // GET /api/admin/maintenance
   app.get("/api/admin/maintenance", requireAdmin, (_req, res) => {
-    try {
-      const configPath = path.join(process.cwd(), "bot", "config.json");
-      const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      res.json({ maintenance: !!cfg.maintenance_mode });
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
+    res.json({ maintenance: getBooleanConfig("MAINTENANCE_MODE", false) });
   });
 
   // POST /api/admin/maintenance
   app.post("/api/admin/maintenance", requireAdmin, (req: Request, res: Response) => {
     try {
       const { maintenance } = req.body;
-      const configPath = path.join(process.cwd(), "bot", "config.json");
-      const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      cfg.maintenance_mode = !!maintenance;
-      fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
-      console.log(`[maintenance] Maintenance mode: ${cfg.maintenance_mode}`);
-      res.json({ success: true, maintenance: cfg.maintenance_mode });
+      updateRuntimeSettings({ MAINTENANCE_MODE: !!maintenance });
+      console.log(`[maintenance] Maintenance mode: ${!!maintenance}`);
+      res.json({ success: true, maintenance: !!maintenance });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -1304,16 +1362,16 @@ export async function registerRoutes(
       const BOT_DIR = path.join(process.cwd(), "bot");
       const ALL_FILES = [
         "admin_sites.json","banned_users.json","bot_settings.json","charged_ccs.json",
-        "config.json","daily_usage.json","found_gates.json","free_users.json",
+        "runtime-settings.json","daily_usage.json","found_gates.json","free_users.json",
         "gateway_status.json","hitter_history.json","keys.json","pk_config.json",
         "premium.json","razorpay_config.json","referrals.json","saved_bins.json",
-        "skool_accounts.json","skool_status.json","user_hitter_prefs.json",
-        "user_proxies.json","user_sites.json","user_skool_accounts.json",
+        "skool_accounts.json","skool_status.json","pending_stealer.json","user_hitter_prefs.json",
+        "user_proxies.json","user_sk_keys.json","user_sites.json","user_skool_accounts.json",
         "user_tiers.json","users.json",
       ];
       const snapshot: Record<string, any> = {
         exported_at: new Date().toISOString(),
-        source: "OGM Checker Bot Dashboard",
+        source: "JayHits Dashboard",
         files: {},
       };
       for (const filename of ALL_FILES) {
@@ -1381,62 +1439,43 @@ export async function registerRoutes(
       if (groupLink !== undefined) updates.TELEGRAM_GROUP_LINK = groupLink;
       if (channelLink !== undefined) updates.TELEGRAM_CHANNEL_LINK = channelLink;
       botManager.updateBotEnvConfig(updates);
-      _configJsonCache = null; // invalidate cached config.json
-      res.json({ success: true, message: "Configuration saved. Restart the bot to apply changes." });
+      res.json({
+        success: true,
+        message: "Secrets are read from .env/Railway variables. Update the deployment environment and restart the bot to apply changes.",
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
   });
 
   // ── Captcha API keys (NopeCHA / CaptchaAI) ──────────────────────────────
-  const CAPTCHA_KEYS_PATH = path.join(process.cwd(), "bot", "config.json");
   app.get("/api/admin/captcha-keys", requireAdmin, (_req, res) => {
-    try {
-      const cfg = JSON.parse(fs.readFileSync(CAPTCHA_KEYS_PATH, "utf-8"));
-      res.json({
-        nopechaKey: cfg.nopecha_api_key || "",
-        captchaaiKey: cfg.captchaai_api_key || "",
-      });
-    } catch {
-      res.json({ nopechaKey: "", captchaaiKey: "" });
-    }
+    res.json({
+      nopechaKey: getConfigValue("NOPECHA_API_KEY"),
+      captchaaiKey: getConfigValue("CAPTCHAAI_API_KEY"),
+    });
   });
 
   app.put("/api/admin/captcha-keys", requireAdmin, (req, res) => {
     try {
-      const { nopechaKey, captchaaiKey } = req.body;
-      let cfg: Record<string, any> = {};
-      try { cfg = JSON.parse(fs.readFileSync(CAPTCHA_KEYS_PATH, "utf-8")); } catch {}
-      if (nopechaKey !== undefined) cfg.nopecha_api_key = nopechaKey;
-      if (captchaaiKey !== undefined) cfg.captchaai_api_key = captchaaiKey;
-      fs.writeFileSync(CAPTCHA_KEYS_PATH, JSON.stringify(cfg, null, 2));
-      _configJsonCache = null;
-      res.json({ success: true });
+      res.json({
+        success: true,
+        message: "Captcha keys are read from NOPECHA_API_KEY and CAPTCHAAI_API_KEY environment variables.",
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
   });
 
   // ── Logs Group config ────────────────────────────────────────────────────
-  const LOGS_CFG_PATH = path.join(process.cwd(), "bot", "config.json");
   app.get("/api/admin/logs-config", requireAdmin, (_req, res) => {
-    try {
-      let cfg: Record<string, any> = {};
-      try { cfg = JSON.parse(fs.readFileSync(LOGS_CFG_PATH, "utf-8")); } catch {}
-      res.json({ logsGroupId: cfg.logs_group_id || "" });
-    } catch (err: any) {
-      res.json({ logsGroupId: "" });
-    }
+    res.json({ logsGroupId: getConfigValue("LOGS_GROUP_ID") });
   });
 
   app.put("/api/admin/logs-config", requireAdmin, (req, res) => {
     try {
       const { logsGroupId } = req.body;
-      let cfg: Record<string, any> = {};
-      try { cfg = JSON.parse(fs.readFileSync(LOGS_CFG_PATH, "utf-8")); } catch {}
-      if (logsGroupId !== undefined) cfg.logs_group_id = String(logsGroupId).trim();
-      fs.writeFileSync(LOGS_CFG_PATH, JSON.stringify(cfg, null, 2));
-      _configJsonCache = null;
+      if (logsGroupId !== undefined) updateRuntimeSettings({ LOGS_GROUP_ID: String(logsGroupId).trim() });
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -2364,6 +2403,7 @@ export async function registerRoutes(
 
   function saveSavedBins(data: Record<string, { bin: string; label: string }[]>) {
     fs.writeFileSync(savedBinsFile, JSON.stringify(data, null, 2));
+    saveJsonFile("saved_bins.json").catch(() => {});
     debouncedSaveJson();
   }
 
@@ -2419,6 +2459,7 @@ export async function registerRoutes(
 
   function saveHitterHistory(data: Record<string, any[]>) {
     fs.writeFileSync(hitterHistoryFile, JSON.stringify(data, null, 2));
+    saveJsonFile("hitter_history.json").catch(() => {});
     debouncedSaveJson();
   }
 
@@ -3037,16 +3078,9 @@ export async function registerRoutes(
       if (data.status === "live") {
         const sessionAny = req.session as any;
         const userName = [sessionAny?.firstName, sessionAny?.lastName].filter(Boolean).join(" ") || sessionAny?.username || req.session?.userId;
-        const configPath = path.join(botDir, "config.json");
-        let botToken = "";
-        let adminId = "";
-        let groupId = "";
-        try {
-          const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-          botToken = config.TELEGRAM_BOT_TOKEN || "";
-          adminId = config.TELEGRAM_ADMIN_ID || "";
-          groupId = config.TELEGRAM_GROUP_ID || "";
-        } catch {}
+        const botToken = getConfigValue("TELEGRAM_BOT_TOKEN");
+        const adminId = getConfigValue("TELEGRAM_ADMIN_ID");
+        const groupId = getConfigValue("TELEGRAM_GROUP_ID");
 
         if (botToken && groupId) {
           const logMsg = `🔑 Live SK Found!\n\n` +
@@ -3183,16 +3217,20 @@ export async function registerRoutes(
   function runPythonScript(scriptPath: string, args: string[], cwd: string, timeout = 15000): Promise<string> {
     return new Promise((resolve, reject) => {
       let output = "";
+      let stderr = "";
       const proc = spawn("python3", ["-u", scriptPath, ...args], {
         cwd,
         env: { ...process.env, PYTHONUNBUFFERED: "1" } as Record<string, string>,
         timeout,
       });
       proc.stdout?.on("data", (data: Buffer) => { output += data.toString(); });
-      proc.stderr?.on("data", () => {});
+      proc.stderr?.on("data", (data: Buffer) => { stderr += data.toString(); });
       proc.on("close", () => {
         if (output.trim()) resolve(output.trim());
-        else reject(new Error("Script returned no output"));
+        else {
+          const stderrTail = stderr.trim().split("\n").slice(-5).join("\n");
+          reject(new Error(stderrTail || "Script returned no output"));
+        }
       });
       proc.on("error", (err) => reject(err));
     });
@@ -3228,6 +3266,7 @@ export async function registerRoutes(
       const cleanUrls = urls.map((u: string) => String(u).trim()).filter((u: string) => u.length > 0).slice(0, 50);
       const script = path.join(botDir, "web_shopify_sites.py");
       const output = await runPythonScript(script, ["add", userId, ...cleanUrls], botDir);
+      await saveJsonFile("user_sites.json");
       res.json(parseLastJson(output));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -3243,6 +3282,7 @@ export async function registerRoutes(
       }
       const script = path.join(botDir, "web_shopify_sites.py");
       const output = await runPythonScript(script, ["remove", userId, url], botDir);
+      await saveJsonFile("user_sites.json");
       res.json(parseLastJson(output));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -3254,6 +3294,7 @@ export async function registerRoutes(
       const userId = req.session!.userId;
       const script = path.join(botDir, "web_shopify_sites.py");
       const output = await runPythonScript(script, ["clear", userId], botDir);
+      await saveJsonFile("user_sites.json");
       res.json(parseLastJson(output));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -3282,6 +3323,11 @@ export async function registerRoutes(
       }
       const script = path.join(botDir, "web_skool_accounts.py");
       const output = await runPythonScript(script, ["add", userId, isAdmin, email, password], botDir);
+      await Promise.all([
+        saveJsonFile("skool_accounts.json"),
+        saveJsonFile("user_skool_accounts.json"),
+        saveJsonFile("skool_status.json"),
+      ]);
       res.json(parseLastJson(output));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -3312,6 +3358,10 @@ export async function registerRoutes(
       }
       const script = path.join(botDir, "web_skool_accounts.py");
       const output = await runPythonScript(script, ["remove", userId, isAdmin, email], botDir);
+      await Promise.all([
+        saveJsonFile("skool_accounts.json"),
+        saveJsonFile("user_skool_accounts.json"),
+      ]);
       res.json(parseLastJson(output));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -3650,10 +3700,11 @@ export async function registerRoutes(
     return {};
   }
 
-  function saveSkKeys(data: Record<string, string[]>) {
-    fs.writeFileSync(userSkFile, JSON.stringify(data, null, 2));
-    debouncedSaveJson();
-  }
+function saveSkKeys(data: Record<string, string[]>) {
+  fs.writeFileSync(userSkFile, JSON.stringify(data, null, 2));
+  saveJsonFile("user_sk_keys.json").catch(() => {});
+  debouncedSaveJson();
+}
 
   // ── Referral Program ──────────────────────────────────────────────────────
   const referralsFile = path.join(path.resolve(process.cwd(), "bot"), "referrals.json");
@@ -3707,7 +3758,7 @@ export async function registerRoutes(
     // Persist so this user's referral code is recognised when someone applies it,
     // even if they have never used the Telegram bot (/start) directly.
     saveReferrals(data);
-    const host = req.headers.host || "hitchecker.replit.app";
+    const host = req.headers.host || "jayhits.app";
     const proto = req.headers["x-forwarded-proto"] || "https";
     const baseUrl = `${proto}://${host}`;
     res.json({

@@ -3,6 +3,7 @@ import json
 import os
 import time
 import requests
+from env_config import get_setting
 
 GATEWAY_NAMES = {
     "st": "Stripe Auth $0",
@@ -75,17 +76,9 @@ def get_user_tier_tag(user_id, admin_ids):
     return "Free"
 
 def send_group_log(user_name, user_id, card, gateway, response_msg, log_type="checker", site="", amount="", real_site=""):
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-    except Exception:
-        print(json.dumps({"sent": False, "error": "Config not found"}))
-        return
-
-    bot_token = config.get("TELEGRAM_BOT_TOKEN", "")
-    group_id = config.get("logs_group_id", "") or config.get("TELEGRAM_GROUP_ID", "")
-    admin_id = config.get("TELEGRAM_ADMIN_ID", "")
+    bot_token = get_setting("TELEGRAM_BOT_TOKEN")
+    group_id = get_setting("LOGS_GROUP_ID") or get_setting("TELEGRAM_GROUP_ID")
+    admin_id = get_setting("TELEGRAM_ADMIN_ID")
     if not bot_token or not group_id:
         print(json.dumps({"sent": False, "error": "No bot token or group ID"}))
         return
@@ -146,7 +139,7 @@ def send_group_log(user_name, user_id, card, gateway, response_msg, log_type="ch
         ]
 
     text = "<pre>" + "\n".join(code_lines) + "</pre>"
-    text += f'\n<a href="https://t.me/{bot_username}/web">Open HIT Checker</a>'
+    text += f'\n<a href="https://t.me/{bot_username}/web">Open JayHits</a>'
 
     if is_charged or is_insuff:
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"

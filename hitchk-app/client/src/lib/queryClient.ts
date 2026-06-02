@@ -1,5 +1,25 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+const configuredApiBaseUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function getApiBaseUrl(): string {
+  if (typeof window !== "undefined" && isLocalHostname(window.location.hostname)) {
+    return "";
+  }
+
+  return configuredApiBaseUrl;
+}
+
+function apiUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  const apiBaseUrl = getApiBaseUrl();
+  return `${apiBaseUrl}${url.startsWith("/") ? url : `/${url}`}`;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -13,7 +33,7 @@ export async function apiRequest(
   data?: unknown | undefined,
   signal?: AbortSignal,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const res = await fetch(apiUrl(url), {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
@@ -31,7 +51,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const res = await fetch(apiUrl(queryKey.join("/") as string), {
       credentials: "include",
     });
 

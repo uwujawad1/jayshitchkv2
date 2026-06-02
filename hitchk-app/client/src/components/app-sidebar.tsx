@@ -27,15 +27,17 @@ export function AppSidebar() {
   const [location] = useLocation();
 
   return (
-    <Sidebar>
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-primary">
-            <Bot className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-sidebar-foreground">OGM CHECKER</h2>
-            <p className="text-xs text-muted-foreground">Bot Dashboard</p>
+    <Sidebar variant="inset">
+      <SidebarHeader>
+        <div className="rounded-2xl border border-white/8 bg-[linear-gradient(145deg,rgba(84,214,165,0.16),rgba(84,214,165,0.03))] p-4 shadow-[0_24px_48px_rgba(0,0,0,0.16)]">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/15">
+              <Bot className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary/80">Workspace</p>
+              <h2 className="text-base font-semibold text-sidebar-foreground">JayHits</h2>
+            </div>
           </div>
         </div>
       </SidebarHeader>
@@ -61,10 +63,13 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Settings className="w-3 h-3" />
-          <span>v1.0.0</span>
+      <SidebarFooter>
+        <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-xs text-muted-foreground">
+          <div className="mb-1 flex items-center gap-2">
+            <Settings className="h-3.5 w-3.5" />
+            <span className="font-semibold text-foreground/80">System Build</span>
+          </div>
+          <span>JayHits Control Surface v1.0.0</span>
         </div>
       </SidebarFooter>
     </Sidebar>

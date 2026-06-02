@@ -103,9 +103,9 @@ export default function ReferralPage() {
 
   const shareLink = () => {
     if (!referralLink) return;
-    const text = `Join HIT Checker — the best payment gateway testing platform!\n${referralLink}`;
+    const text = `Join JayHits\n${referralLink}`;
     if (navigator.share) {
-      navigator.share({ title: "HIT Checker", text, url: referralLink }).catch(() => {});
+      navigator.share({ title: "JayHits", text, url: referralLink }).catch(() => {});
     } else {
       copyText(referralLink, "link");
     }

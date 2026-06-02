@@ -1,0 +1,9 @@
+{
+  "projectId": "c9a4458d-7bed-45e7-b90b-9c01512ac08f",
+  "createdAt": 1780389814933,
+  "version": "1.0",
+  "startupCommands": [
+    "cd hitchk-app; npm install; npm run dev"
+  ],
+  "templateId": "any"
+}

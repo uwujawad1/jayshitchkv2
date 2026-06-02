@@ -3,42 +3,21 @@ import time
 import json
 import os
 import logging
+from env_config import get_setting, write_runtime_setting
 
 logging.basicConfig(level=logging.INFO, format='%(name)s: %(message)s')
 logger = logging.getLogger("stripe_charge")
 
 STRIPE_API = "https://api.stripe.com/v1"
 
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
-
-
-def _load_config():
-    try:
-        with open(CONFIG_FILE) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-
-def _save_config(data):
-    try:
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        logger.error(f"Failed to save config: {e}")
-
-
 def set_charge_sk(sk, amount_cents=50):
-    config = _load_config()
-    config["charge_sk"] = sk
-    config["charge_amount"] = int(amount_cents)
-    _save_config(config)
+    write_runtime_setting("CHARGE_SK", sk)
+    write_runtime_setting("CHARGE_AMOUNT", int(amount_cents))
 
 
 def get_charge_sk():
-    config = _load_config()
-    sk = config.get("charge_sk", "")
-    amount = config.get("charge_amount", 50)
+    sk = get_setting("CHARGE_SK")
+    amount = get_setting("CHARGE_AMOUNT", "50")
     return sk, int(amount)
 
 

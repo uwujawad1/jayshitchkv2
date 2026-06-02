@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { log } from "./index";
 import { saveAllJsonFiles } from "./json-persistence";
+import { getConfigValue, readRuntimeSettings, updateRuntimeSettings } from "./env-config";
 
 interface BotLog {
   timestamp: string;
@@ -46,6 +47,8 @@ class BotManager {
 
   getStatus() {
     const running = this.isRunning();
+    const { botToken, apiId, apiHash } = this.getBotEnvConfig();
+    const webhookOnlyMode = !!botToken && !apiId && !apiHash;
     return {
       running,
       pid: running ? this.process?.pid ?? null : null,
@@ -53,6 +56,7 @@ class BotManager {
         ? (Date.now() - this.startedAt.getTime()) / 1000
         : null,
       startedAt: this.startedAt?.toISOString() ?? null,
+      webhookOnlyMode,
     };
   }
 
@@ -71,6 +75,14 @@ class BotManager {
 
     if (!fs.existsSync(this.botScript)) {
       return { success: false, message: "Bot script not found at " + this.botScript };
+    }
+
+    const { botToken, apiId, apiHash } = this.getBotEnvConfig();
+    if (botToken && !apiId && !apiHash) {
+      const message =
+        "Webhook mode is enabled. The legacy Python Telegram client does not need to run.";
+      this.addLog(message, "system");
+      return { success: false, message };
     }
 
     try {
@@ -210,26 +222,41 @@ class BotManager {
     const usersData = this.loadJsonFile("users.json");
     const premiumData = this.loadJsonFile("premium.json");
     const bannedData = this.loadJsonFile("banned_users.json");
+    const tiersData = this.loadJsonFile("user_tiers.json");
 
     const allUserIds = new Set<string>();
     Object.keys(usersData).forEach((id) => allUserIds.add(id));
     Object.keys(premiumData).forEach((id) => allUserIds.add(id));
     Object.keys(bannedData).forEach((id) => allUserIds.add(id));
+    Object.keys(tiersData).forEach((id) => allUserIds.add(id));
 
     const users = Array.from(allUserIds).map((id) => {
       const userData = usersData[id] || {};
       const premiumInfo = premiumData[id] || null;
       const bannedInfo = bannedData[id] || null;
+      const tierInfo = tiersData[id] || null;
 
-      let isPremium = false;
+      let hasActivePremium = false;
       if (premiumInfo) {
         const expiry = new Date(premiumInfo.expiry);
-        isPremium = expiry > new Date();
+        hasActivePremium = expiry > new Date();
       }
+
+      let activeTier = "free";
+      if (this.isAdminId(id)) {
+        activeTier = "gold";
+      } else if (tierInfo?.tier) {
+        const expiry = tierInfo.expiresAt ? new Date(tierInfo.expiresAt).getTime() : null;
+        if (!expiry || Date.now() <= expiry) {
+          activeTier = tierInfo.tier;
+        }
+      }
+
+      const isPremium = hasActivePremium || activeTier !== "free";
 
       return {
         id,
-        joinedAt: userData.joined_at || null,
+        joinedAt: userData.joined_at || tierInfo?.assignedAt || premiumInfo?.added_at || null,
         isPremium,
         premiumExpiry: premiumInfo?.expiry || null,
         premiumDays: premiumInfo?.days || null,
@@ -381,33 +408,23 @@ class BotManager {
   }
 
   getConfig(): Record<string, string> {
-    const configPath = path.join(this.botDir, "config.json");
-    try {
-      if (!fs.existsSync(configPath)) return {};
-      const content = fs.readFileSync(configPath, "utf-8");
-      if (!content.trim()) return {};
-      return JSON.parse(content);
-    } catch {
-      return {};
-    }
+    return readRuntimeSettings();
   }
 
   saveConfig(config: Record<string, string>) {
-    const configPath = path.join(this.botDir, "config.json");
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+    updateRuntimeSettings(config);
     saveAllJsonFiles().catch(() => {});
   }
 
   getBotEnvConfig() {
-    const config = this.getConfig();
     return {
-      botToken: config.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "",
-      apiId: config.TELEGRAM_API_ID || process.env.TELEGRAM_API_ID || "",
-      apiHash: config.TELEGRAM_API_HASH || process.env.TELEGRAM_API_HASH || "",
-      adminId: config.TELEGRAM_ADMIN_ID || process.env.TELEGRAM_ADMIN_ID || "",
-      groupId: config.TELEGRAM_GROUP_ID || process.env.TELEGRAM_GROUP_ID || "",
-      groupLink: config.TELEGRAM_GROUP_LINK || process.env.TELEGRAM_GROUP_LINK || "",
-      channelLink: config.TELEGRAM_CHANNEL_LINK || process.env.TELEGRAM_CHANNEL_LINK || "",
+      botToken: getConfigValue("TELEGRAM_BOT_TOKEN"),
+      apiId: getConfigValue("TELEGRAM_API_ID"),
+      apiHash: getConfigValue("TELEGRAM_API_HASH"),
+      adminId: getConfigValue("TELEGRAM_ADMIN_ID"),
+      groupId: getConfigValue("TELEGRAM_GROUP_ID"),
+      groupLink: getConfigValue("TELEGRAM_GROUP_LINK"),
+      channelLink: getConfigValue("TELEGRAM_CHANNEL_LINK"),
     };
   }
 
@@ -422,17 +439,16 @@ class BotManager {
   }
 
   private getBotProcessEnv(): Record<string, string> {
-    const config = this.getConfig();
     return {
       ...process.env as Record<string, string>,
       PYTHONUNBUFFERED: "1",
-      ...(config.TELEGRAM_BOT_TOKEN && { TELEGRAM_BOT_TOKEN: config.TELEGRAM_BOT_TOKEN }),
-      ...(config.TELEGRAM_API_ID && { TELEGRAM_API_ID: config.TELEGRAM_API_ID }),
-      ...(config.TELEGRAM_API_HASH && { TELEGRAM_API_HASH: config.TELEGRAM_API_HASH }),
-      ...(config.TELEGRAM_ADMIN_ID && { TELEGRAM_ADMIN_ID: config.TELEGRAM_ADMIN_ID }),
-      ...(config.TELEGRAM_GROUP_ID && { TELEGRAM_GROUP_ID: config.TELEGRAM_GROUP_ID }),
-      ...(config.TELEGRAM_GROUP_LINK && { TELEGRAM_GROUP_LINK: config.TELEGRAM_GROUP_LINK }),
-      ...(config.TELEGRAM_CHANNEL_LINK && { TELEGRAM_CHANNEL_LINK: config.TELEGRAM_CHANNEL_LINK }),
+      TELEGRAM_BOT_TOKEN: getConfigValue("TELEGRAM_BOT_TOKEN"),
+      TELEGRAM_API_ID: getConfigValue("TELEGRAM_API_ID"),
+      TELEGRAM_API_HASH: getConfigValue("TELEGRAM_API_HASH"),
+      TELEGRAM_ADMIN_ID: getConfigValue("TELEGRAM_ADMIN_ID"),
+      TELEGRAM_GROUP_ID: getConfigValue("TELEGRAM_GROUP_ID"),
+      TELEGRAM_GROUP_LINK: getConfigValue("TELEGRAM_GROUP_LINK"),
+      TELEGRAM_CHANNEL_LINK: getConfigValue("TELEGRAM_CHANNEL_LINK"),
     };
   }
 
@@ -446,6 +462,14 @@ class BotManager {
     } catch {
       return {};
     }
+  }
+
+  private isAdminId(userId: string): boolean {
+    const adminIds = (this.getBotEnvConfig().adminId || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    return adminIds.includes(userId);
   }
 }
 

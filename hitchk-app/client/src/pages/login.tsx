@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { CreditCard, Send, ShieldCheck, Loader2, KeyRound, ExternalLink, MessageCircle, Clock, Gift, Ban } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -18,7 +17,7 @@ export default function LoginPage() {
   const [userId, setUserId] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const [botUsername, setBotUsername] = useState("HitChkBot");
+  const [botUsername, setBotUsername] = useState("JayHitsBot");
   const [cooldown, setCooldown] = useState(0); // seconds remaining before next OTP allowed
   const [banned, setBanned] = useState(false);
   const { toast } = useToast();
@@ -156,28 +155,28 @@ export default function LoginPage() {
 
   if (banned || isBanned) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-        <div className="absolute top-4 right-4"><ThemeToggle /></div>
+      <div className="app-shell relative flex min-h-screen flex-col items-center justify-center p-4">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(196,93,58,0.14),transparent_35%),radial-gradient(circle_at_bottom,rgba(84,214,165,0.12),transparent_30%)]" />
         <div className="flex flex-col items-center gap-6 w-full max-w-sm">
-          <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-destructive/15 border border-destructive/30">
+          <div className="flex items-center justify-center w-16 h-16 rounded-2xl border border-destructive/25 bg-destructive/10 shadow-[0_20px_50px_rgba(165,54,45,0.16)]">
             <Ban className="w-8 h-8 text-destructive" />
           </div>
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-bold text-destructive" data-testid="text-banned-title">You Have Been Banned</h1>
-            <p className="text-sm text-muted-foreground">You are no longer able to use Hit Checker.</p>
+            <p className="text-sm text-muted-foreground">You are no longer able to use JayHits.</p>
           </div>
           <Card className="w-full border-destructive/30" data-testid="card-banned">
             <CardContent className="pt-6 space-y-4 text-center">
               <p className="text-sm text-muted-foreground">If you believe this was a mistake, contact the admin to appeal your ban.</p>
               <a
-                href="https://t.me/OGM010"
+                href={`https://t.me/${import.meta.env.VITE_ADMIN_TELEGRAM_USERNAME || "JayHitsAdmin"}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="link-appeal"
               >
                 <Button variant="outline" className="w-full gap-2">
                   <MessageCircle className="w-4 h-4" />
-                  Contact @OGM010 to Appeal
+                  Contact Admin to Appeal
                   <ExternalLink className="w-3 h-3 opacity-60" />
                 </Button>
               </a>
@@ -189,33 +188,33 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
-      </div>
-
+    <div className="app-shell relative flex min-h-screen flex-col items-center justify-center p-4">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(84,214,165,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(196,93,58,0.12),transparent_34%)]" />
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="flex flex-col items-center gap-6 w-full max-w-sm md:max-w-md lg:max-w-lg"
+        className="relative z-10 flex w-full max-w-sm flex-col items-center gap-7 md:max-w-md lg:max-w-lg"
       >
         <div className="flex flex-col items-center gap-3 lg:gap-4">
+          <div className="app-chip">Secure Workspace Access</div>
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="flex items-center justify-center w-14 h-14 lg:w-18 lg:h-18 rounded-xl bg-primary shadow-lg shadow-primary/25 transition-transform duration-300 hover:scale-110"
+            className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/12 bg-[linear-gradient(145deg,rgba(84,214,165,0.22),rgba(84,214,165,0.06))] shadow-[0_28px_60px_rgba(84,214,165,0.16)] transition-transform duration-300 hover:scale-105 lg:h-20 lg:w-20"
             data-testid="logo-icon"
           >
             <CreditCard className="w-7 h-7 lg:w-9 lg:h-9 text-primary-foreground" />
           </motion.div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight" data-testid="text-app-title">Hit Checker</h1>
-          <p className="text-sm lg:text-base text-muted-foreground text-center">Login with your Telegram account</p>
+          <div className="space-y-2 text-center">
+            <h1 className="text-3xl font-semibold tracking-tight lg:text-4xl" data-testid="text-app-title">JayHits</h1>
+            <p className="mx-auto max-w-sm text-sm leading-6 text-muted-foreground lg:text-base">Enter with your Telegram identity and keep the full workspace behind one clean verification flow.</p>
+          </div>
         </div>
 
-        <Card className="w-full animate-fade-in-up" style={{ animationDelay: "150ms" }}>
-          <CardHeader className="pb-4">
+        <Card className="w-full animate-fade-in-up overflow-hidden" style={{ animationDelay: "150ms" }}>
+          <CardHeader className="border-b border-white/6 pb-4">
             <CardTitle className="text-base flex items-center gap-2">
               {step === "id" ? (
                 <>
@@ -244,14 +243,14 @@ export default function LoginPage() {
                     data-testid="input-user-id"
                   />
 
-                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
-                    <p className="text-xs font-medium text-blue-400 mb-2 flex items-center gap-1.5">
+                  <div className="rounded-lg border border-white/8 bg-white/[0.03] p-4">
+                    <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-primary/90">
                       <MessageCircle className="w-3.5 h-3.5" />
                       How to get your User ID
                     </p>
                     <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
                       <div className="flex items-start gap-2">
-                        <span className="bg-blue-500/20 text-blue-400 rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">1</span>
                         <span>Open & start our Telegram bot</span>
                       </div>
                       <div className="flex items-center justify-center my-1">
@@ -259,7 +258,7 @@ export default function LoginPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-7 text-xs border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                          className="h-8 text-xs"
                           onClick={() => window.open(`https://t.me/${botUsername}`, "_blank")}
                           data-testid="button-open-bot"
                         >
@@ -268,11 +267,11 @@ export default function LoginPage() {
                         </Button>
                       </div>
                       <div className="flex items-start gap-2">
-                        <span className="bg-blue-500/20 text-blue-400 rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">2</span>
                         <span>Click <strong>/start</strong> to get your User ID</span>
                       </div>
                       <div className="flex items-start gap-2">
-                        <span className="bg-blue-500/20 text-blue-400 rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span>
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">3</span>
                         <span>Copy & paste your ID above</span>
                       </div>
                     </div>

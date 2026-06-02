@@ -3,17 +3,14 @@ import sys
 import json
 import asyncio
 from telethon import TelegramClient
+from env_config import get_setting
 
 async def main():
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    with open(config_path, "r") as f:
-        config = json.load(f)
-
-    api_id = int(config.get("TELEGRAM_API_ID", "0"))
-    api_hash = config.get("TELEGRAM_API_HASH", "")
+    api_id = int(get_setting("TELEGRAM_API_ID", "0"))
+    api_hash = get_setting("TELEGRAM_API_HASH")
 
     if not api_id or not api_hash:
-        print("Missing TELEGRAM_API_ID or TELEGRAM_API_HASH in config.json")
+        print("Missing TELEGRAM_API_ID or TELEGRAM_API_HASH in environment")
         return
 
     session_path = os.path.join(os.path.dirname(__file__), "scraper_user")

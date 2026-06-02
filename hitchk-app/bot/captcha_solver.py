@@ -5,6 +5,7 @@ import re
 import json
 import logging
 from urllib.parse import urlparse, urljoin
+from env_config import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -23,19 +24,9 @@ CAPSOLVER_RES = "https://api.capsolver.com/getTaskResult"
 MAX_POLL_ATTEMPTS = 40
 POLL_INTERVAL = 5
 
-_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
-
 def _get_config_key(key: str, env_var: str) -> str:
-    """Read a key from config.json first, fall back to env var. Always fresh read so admin changes take effect instantly."""
-    try:
-        with open(_CONFIG_PATH, "r") as f:
-            cfg = json.load(f)
-        val = cfg.get(key, "")
-        if val:
-            return val
-    except Exception:
-        pass
-    return os.environ.get(env_var, "")
+    """Read captcha keys from environment/runtime settings."""
+    return get_setting(env_var) or get_setting(key)
 
 def get_nopecha_key() -> str:
     key = _get_config_key("nopecha_api_key", "NOPECHA_API_KEY")

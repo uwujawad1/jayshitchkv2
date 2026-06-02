@@ -3,26 +3,13 @@ import json
 import requests
 import os
 import datetime
+from env_config import get_setting
 
 def get_bot_token():
-    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    if not bot_token:
-        config_path = os.path.join(os.path.dirname(__file__), "config.json")
-        if os.path.exists(config_path):
-            with open(config_path) as f:
-                config = json.load(f)
-                bot_token = config.get("TELEGRAM_BOT_TOKEN", "")
-    return bot_token
+    return get_setting("TELEGRAM_BOT_TOKEN")
 
 def get_group_id():
-    group_id = os.environ.get("TELEGRAM_GROUP_ID", "")
-    if not group_id:
-        config_path = os.path.join(os.path.dirname(__file__), "config.json")
-        if os.path.exists(config_path):
-            with open(config_path) as f:
-                config = json.load(f)
-                group_id = config.get("TELEGRAM_GROUP_ID", "")
-    return group_id
+    return get_setting("TELEGRAM_GROUP_ID")
 
 def send_invoice(user_id, plan, days, key):
     bot_token = get_bot_token()
@@ -53,7 +40,7 @@ def send_invoice(user_id, plan, days, key):
         f"\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n"
         f"\u2705 Your {plan_name} plan is now active!\n"
         f"Enjoy your premium features {plan_emoji}\n\n"
-        f"\U0001f310 Hit Checker Bot"
+        f"\U0001f310 JayHits"
     )
 
     try:

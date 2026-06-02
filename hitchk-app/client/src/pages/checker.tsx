@@ -19,7 +19,6 @@ import {
 import { PageTransition } from "@/components/page-transition";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { apiRequest } from "@/lib/queryClient";
 
 interface Gateway {
@@ -376,8 +375,8 @@ export default function CheckerPage() {
   const errors = results.filter(r => r.status === "error" || r.status === "unknown").length;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <header className="flex items-center justify-between gap-2 p-3 lg:p-4 border-b sticky top-0 z-50 bg-background">
+    <div className="app-shell flex flex-col min-h-screen">
+      <header className="app-topbar">
         <div className="flex items-center gap-3">
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
@@ -389,7 +388,7 @@ export default function CheckerPage() {
               <SheetHeader className="p-4 border-b shrink-0">
                 <SheetTitle className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-primary" />
-                  Hit Checker
+                  JayHits
                 </SheetTitle>
                 <SheetDescription className="sr-only">Navigation menu and tools</SheetDescription>
               </SheetHeader>
@@ -547,9 +546,14 @@ export default function CheckerPage() {
               </div>
             </SheetContent>
           </Sheet>
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5 lg:w-6 lg:h-6 text-primary" />
-            <h1 className="text-lg lg:text-xl font-semibold" data-testid="text-page-title">Hit Checker</h1>
+          <div className="app-topbar__title">
+            <div className="app-topbar__icon">
+              <CreditCard className="w-5 h-5 lg:w-6 lg:h-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">Verification Lab</p>
+              <h1 className="text-lg font-semibold lg:text-xl" data-testid="text-page-title">Checker</h1>
+            </div>
           </div>
           {checking && (
             <Badge variant="secondary" className="text-xs" data-testid="badge-progress">
@@ -558,7 +562,7 @@ export default function CheckerPage() {
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           {isAdmin && (
             <Button
               variant="ghost"
@@ -570,11 +574,11 @@ export default function CheckerPage() {
               <ShieldEllipsis className="w-4 h-4" />
             </Button>
           )}
-          <ThemeToggle />
+          <div className="app-chip">Batch Engine</div>
         </div>
       </header>
 
-      <PageTransition className="flex-1 overflow-x-hidden p-3 md:p-6 lg:p-8">
+      <PageTransition className="app-page flex-1 overflow-x-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
           <div className="lg:col-span-2 flex flex-col gap-4 lg:gap-6">
             <Card>

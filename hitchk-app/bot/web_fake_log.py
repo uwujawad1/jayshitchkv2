@@ -11,6 +11,7 @@ os.chdir(os.path.dirname(__file__))
 from gates.stripe_co import _fetch_checkout_info
 import httpx
 import requests
+from env_config import get_setting
 
 def generate_fake_card():
     prefixes = ["4", "5", "37", "6"]
@@ -38,15 +39,8 @@ async def fetch_checkout_details(checkout_url):
 
 
 def send_fake_hit(user_name, user_id, card, site, amount, gateway_display="Stripe Checkout Hitter"):
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-    except:
-        return {"sent": False, "error": "Config not found"}
-
-    bot_token = config.get("TELEGRAM_BOT_TOKEN", "")
-    group_id = config.get("TELEGRAM_GROUP_ID", "")
+    bot_token = get_setting("TELEGRAM_BOT_TOKEN")
+    group_id = get_setting("TELEGRAM_GROUP_ID")
     if not bot_token or not group_id:
         return {"sent": False, "error": "No bot token or group ID"}
 
@@ -76,7 +70,7 @@ def send_fake_hit(user_name, user_id, card, site, amount, gateway_display="Strip
     if amount:
         code_lines.append(f"\U0001f4b0 Amount: {amount}")
     code_block = "\n".join(code_lines)
-    text = f"```\n{escape_md(code_block)}\n```\n[Open HIT Checker](https://t.me/{bot_username}/web)"
+    text = f"```\n{escape_md(code_block)}\n```\n[Open JayHits](https://t.me/{bot_username}/web)"
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     try:

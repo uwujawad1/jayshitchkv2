@@ -4,10 +4,16 @@ import connectPgSimple from "connect-pg-simple";
 import MemoryStoreFactory from "memorystore";
 import compression from "compression";
 import pg from "pg";
+import * as crypto from "crypto";
+import dotenv from "dotenv";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { restoreJsonFiles, saveAllJsonFiles, startPeriodicSave } from "./json-persistence";
+import { createPgPoolConfig } from "./pg-config";
+
+dotenv.config({ path: ".env" });
+dotenv.config({ path: ".env.local", override: true });
 
 declare module "express-session" {
   interface SessionData {
@@ -54,21 +60,19 @@ async function createSessionStore(): Promise<session.Store> {
     return new MemoryStore({ checkPeriod: 86400000 });
   }
   try {
-    const testPool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL,
+    const testPool = new pg.Pool(createPgPoolConfig({
       connectionTimeoutMillis: 5000,
       max: 1,
-    });
+    }));
     const client = await testPool.connect();
     client.release();
     await testPool.end();
 
     const PgSession = connectPgSimple(session);
-    const sessionPool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL,
+    const sessionPool = new pg.Pool(createPgPoolConfig({
       connectionTimeoutMillis: 10000,
       max: 5,
-    });
+    }));
     sessionPool.on("error", (err: any) => {
       console.error("Database pool error:", err.message);
     });
@@ -130,7 +134,7 @@ app.use((req, res, next) => {
     session({
       store: sessionStore,
       secret: process.env.SESSION_SECRET || (() => {
-        const fallback = require("crypto").randomBytes(32).toString("hex");
+        const fallback = crypto.randomBytes(32).toString("hex");
         console.warn("WARNING: No SESSION_SECRET set. Using random secret (sessions won't persist across restarts).");
         return fallback;
       })(),

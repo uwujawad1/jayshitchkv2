@@ -4,6 +4,7 @@ import json
 import asyncio
 import re
 import aiohttp
+from env_config import get_setting
 
 sys.path.insert(0, os.path.dirname(__file__))
 os.chdir(os.path.dirname(__file__))
@@ -175,16 +176,12 @@ async def scrape_via_telethon_bot(scrape_type, chat_id, limit, api_id, api_hash,
 
 
 async def scrape_messages(scrape_type, chat_id, limit):
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    with open(config_path, "r") as f:
-        config = json.load(f)
-
-    api_id = int(config.get("TELEGRAM_API_ID", os.environ.get("TELEGRAM_API_ID", "0")))
-    api_hash = config.get("TELEGRAM_API_HASH", os.environ.get("TELEGRAM_API_HASH", ""))
-    bot_token = config.get("TELEGRAM_BOT_TOKEN", os.environ.get("TELEGRAM_BOT_TOKEN", ""))
+    api_id = int(get_setting("TELEGRAM_API_ID", "0"))
+    api_hash = get_setting("TELEGRAM_API_HASH")
+    bot_token = get_setting("TELEGRAM_BOT_TOKEN")
 
     if not api_id or not api_hash or not bot_token:
-        return {"error": "Missing Telegram API credentials in config"}
+        return {"error": "Missing Telegram API credentials in environment"}
 
     user_session = os.path.join(os.path.dirname(__file__), "scraper_user.session")
     if os.path.exists(user_session):

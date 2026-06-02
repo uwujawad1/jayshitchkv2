@@ -158,7 +158,7 @@ export default function ScraperPage() {
               <SheetHeader className="p-4 border-b shrink-0">
                 <SheetTitle className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-primary" />
-                  Hit Checker
+                  JayHits
                 </SheetTitle>
                 <SheetDescription className="sr-only">Navigation menu and tools</SheetDescription>
               </SheetHeader>

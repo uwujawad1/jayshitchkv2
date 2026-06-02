@@ -14,7 +14,6 @@ import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescri
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/page-transition";
 import { useAuth } from "@/lib/auth";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -113,8 +112,8 @@ export default function UserDashboardPage() {
   const quickTools = [...BASE_QUICK_TOOLS];
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <header className="flex items-center justify-between gap-2 p-3 lg:p-4 border-b sticky top-0 z-50 bg-background">
+    <div className="app-shell flex flex-col min-h-screen">
+      <header className="app-topbar">
         <div className="flex items-center gap-3">
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
@@ -126,7 +125,7 @@ export default function UserDashboardPage() {
               <SheetHeader className="p-4 border-b shrink-0">
                 <SheetTitle className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-primary" />
-                  Hit Checker
+                  JayHits
                 </SheetTitle>
                 <SheetDescription className="sr-only">Navigation menu and tools</SheetDescription>
               </SheetHeader>
@@ -229,29 +228,34 @@ export default function UserDashboardPage() {
               </div>
             </SheetContent>
           </Sheet>
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 lg:w-6 lg:h-6 text-primary" />
-            <h1 className="text-lg lg:text-xl font-semibold" data-testid="text-page-title">Dashboard</h1>
+          <div className="app-topbar__title">
+            <div className="app-topbar__icon">
+              <TrendingUp className="w-5 h-5 lg:w-6 lg:h-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">Workspace</p>
+              <h1 className="text-lg font-semibold lg:text-xl" data-testid="text-page-title">Dashboard</h1>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           {isAdmin && (
             <Button variant="ghost" size="icon" onClick={() => navigate("/admin")} data-testid="button-admin-header" title="Admin Panel">
               <ShieldEllipsis className="w-4 h-4" />
             </Button>
           )}
-          <ThemeToggle />
+          <div className="app-chip">Live Console</div>
         </div>
       </header>
 
-      <PageTransition className="flex-1 p-3 md:p-6 lg:p-8">
+      <PageTransition className="app-page flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="max-w-2xl lg:max-w-5xl mx-auto flex flex-col gap-4 lg:gap-6">
-            <Card className="animate-fade-in-up">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 lg:gap-6">
+            <Card className="animate-fade-in-up overflow-hidden">
               <CardHeader className="p-4 lg:p-6 pb-2 lg:pb-3">
                 <CardTitle className="text-sm lg:text-lg flex items-center gap-2">
                   <span className="lg:text-xl">🏆</span>
@@ -259,7 +263,7 @@ export default function UserDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 lg:p-6 pt-2 lg:pt-3">
-                <div className="flex items-center gap-3 lg:gap-5 mb-4 p-3 lg:p-5 rounded-lg bg-muted/30 border transition-all duration-300 hover:bg-muted/50">
+                <div className="flex items-center gap-3 lg:gap-5 mb-4 rounded-lg border border-white/8 bg-white/[0.03] p-3 lg:p-5 transition-all duration-300 hover:bg-white/[0.05]">
                   {user?.photoUrl ? (
                     <Avatar className="w-12 h-12 lg:w-16 lg:h-16 border border-primary/30" data-testid="img-avatar-status">
                       <AvatarImage src={user.photoUrl} alt={displayName} />
@@ -298,7 +302,7 @@ export default function UserDashboardPage() {
                 { icon: "🎯", value: data?.userHits || 0, label: "Your Hits", color: "text-purple-400", testId: "text-user-hits", delay: "100ms" },
                 { icon: "🏆", value: `#${data?.userRank || "-"}`, label: "Your Rank", color: "text-amber-400", testId: "text-user-rank", delay: "150ms" },
               ].map((stat) => (
-                <Card key={stat.testId} className="p-3 lg:p-5 border animate-fade-in-up transition-all duration-300 hover:scale-[1.02] hover:shadow-md" style={{ animationDelay: stat.delay }}>
+                <Card key={stat.testId} className="metric-panel p-3 lg:p-5 border animate-fade-in-up transition-all duration-300 hover:-translate-y-1 hover:shadow-lg" style={{ animationDelay: stat.delay }}>
                   <div className="flex flex-col items-center gap-1.5 lg:gap-3">
                     <span className="text-xl lg:text-3xl">{stat.icon}</span>
                     <p className={`text-2xl lg:text-4xl font-bold ${stat.color} animate-count-up`} data-testid={stat.testId}>{stat.value}</p>
@@ -310,7 +314,7 @@ export default function UserDashboardPage() {
 
             {/* Referral Teaser */}
             <Card
-              className="border-primary/20 bg-gradient-to-r from-primary/10 to-transparent animate-fade-in-up cursor-pointer hover:shadow-md transition-shadow"
+              className="animate-fade-in-up cursor-pointer border-primary/10 bg-[linear-gradient(135deg,rgba(84,214,165,0.14),rgba(255,255,255,0.02))] transition-shadow hover:shadow-lg"
               style={{ animationDelay: "170ms" }}
               onClick={() => navigate("/referral")}
               data-testid="card-referral-teaser"

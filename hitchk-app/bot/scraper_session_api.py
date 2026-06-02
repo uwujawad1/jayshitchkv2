@@ -8,14 +8,11 @@ os.chdir(os.path.dirname(__file__))
 
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
+from env_config import get_setting
 
 async def send_code(phone):
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    with open(config_path, "r") as f:
-        config = json.load(f)
-
-    api_id = int(config.get("TELEGRAM_API_ID", "0"))
-    api_hash = config.get("TELEGRAM_API_HASH", "")
+    api_id = int(get_setting("TELEGRAM_API_ID", "0"))
+    api_hash = get_setting("TELEGRAM_API_HASH")
     session_path = os.path.join(os.path.dirname(__file__), "scraper_user")
 
     client = TelegramClient(session_path, api_id, api_hash)
@@ -34,12 +31,8 @@ async def send_code(phone):
 
 
 async def verify_code(phone, code, phone_code_hash, password=None):
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    with open(config_path, "r") as f:
-        config = json.load(f)
-
-    api_id = int(config.get("TELEGRAM_API_ID", "0"))
-    api_hash = config.get("TELEGRAM_API_HASH", "")
+    api_id = int(get_setting("TELEGRAM_API_ID", "0"))
+    api_hash = get_setting("TELEGRAM_API_HASH")
     session_path = os.path.join(os.path.dirname(__file__), "scraper_user")
 
     client = TelegramClient(session_path, api_id, api_hash)

@@ -77,7 +77,7 @@ function getTierIcon(tier: string) {
   }
 }
 
-const ADMIN_TELEGRAM = "OGM010";
+const ADMIN_TELEGRAM = import.meta.env.VITE_ADMIN_TELEGRAM_USERNAME || "JayHitsAdmin";
 
 export default function PricingPage() {
   const [, navigate] = useLocation();

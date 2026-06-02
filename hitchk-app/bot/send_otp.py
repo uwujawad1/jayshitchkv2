@@ -2,15 +2,10 @@ import sys
 import json
 import requests
 import os
+from env_config import get_setting
 
 def send_otp(user_id, otp_code):
-    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    if not bot_token:
-        config_path = os.path.join(os.path.dirname(__file__), "config.json")
-        if os.path.exists(config_path):
-            with open(config_path) as f:
-                config = json.load(f)
-                bot_token = config.get("TELEGRAM_BOT_TOKEN", "")
+    bot_token = get_setting("TELEGRAM_BOT_TOKEN")
 
     if not bot_token:
         return {"ok": False, "error": "No bot token configured"}
@@ -23,7 +18,7 @@ def send_otp(user_id, otp_code):
         f"⏳ Expires in 5 minutes\n"
         f"⚠️ Do not share this code\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🌐 Hit Checker Web Login"
+        f"JayHits Web Login"
     )
 
     try:

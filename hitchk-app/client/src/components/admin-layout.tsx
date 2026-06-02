@@ -1,7 +1,7 @@
-import { Switch, Route, useLocation, Link } from "wouter";
+import { Switch, Route } from "wouter";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin-sidebar";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { Bot } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import BotControl from "@/pages/bot-control";
@@ -18,12 +18,23 @@ export default function AdminLayout() {
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
+      <div className="app-shell flex h-screen w-full">
         <AdminSidebar />
-        <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between gap-2 p-2 border-b sticky top-0 z-50 bg-background">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <ThemeToggle />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="app-topbar">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <div className="app-topbar__title">
+                <div className="app-topbar__icon">
+                  <Bot className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">Operator Console</p>
+                  <h1 className="text-base font-semibold text-foreground lg:text-lg">Administration</h1>
+                </div>
+              </div>
+            </div>
+            <div className="app-chip">JayHits Admin</div>
           </header>
           <main className="flex-1 overflow-auto">
             <Switch>

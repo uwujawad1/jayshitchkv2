@@ -2,18 +2,10 @@ import sys
 import json
 import os
 import requests
+from env_config import get_setting
 
 def get_bot_token():
-    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    if not token:
-        config_path = os.path.join(os.path.dirname(__file__), "config.json")
-        try:
-            with open(config_path, "r") as f:
-                config = json.load(f)
-                token = config.get("TELEGRAM_BOT_TOKEN", "")
-        except Exception:
-            pass
-    return token
+    return get_setting("TELEGRAM_BOT_TOKEN")
 
 def download_profile_photo(token, user_id):
     """

